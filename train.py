@@ -22,10 +22,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-savename = "CIFAR-10-SGD"
-writer = SummaryWriter("../CI_logs/{}".format(savename))
-
-
 """
 
     Train Model
@@ -37,14 +33,17 @@ def train(model, device, loss_criterion, optimizer, training_set, testing_set,ne
 
     global_epochs = 1
     
+    # array of logs
     train_logs = np.array([])
     eval_logs  = np.array([])
 
     while global_epochs < nepochs+1:
 
         progress_bar = tqdm(enumerate(training_set))
-        running_loss = 0
-        iter_inbatch = 0
+        
+        running_loss = 0  # Total loss in epochs
+        iter_inbatch = 0  # Iteration in batch
+
         for _ , (images, labels) in progress_bar:
             
             # move dataset to same device as model
@@ -63,7 +62,7 @@ def train(model, device, loss_criterion, optimizer, training_set, testing_set,ne
             # calculate loss
             loss = loss_criterion(predicted,labels) 
 
-            # backprop and optmizer update
+            # backprop and optmizer update weight
             loss.backward()
             optimizer.step()
              
@@ -75,19 +74,22 @@ def train(model, device, loss_criterion, optimizer, training_set, testing_set,ne
 
         # get loss in current iteration
         train_loss = running_loss/iter_inbatch
-        eval_loss = eval(model, device, loss_criterion, testing_set)
+        eval_loss = eval_model(model, device, loss_criterion, testing_set)
 
         # append in array 
         train_logs = np.append(train_logs, train_loss)
         eval_logs = np.append(eval_logs, eval_loss)
-
+        
+        # Plot Figure
         figure = plot_diff(train_logs, eval_logs)
 
-
+        # Add logs to tensorboard
         writer.add_scalar("Loss/Train",train_loss,global_epochs)
         writer.add_scalar("Loss/Eval",eval_loss,global_epochs)
         writer.add_figure("Loss/plot",figure,global_epochs)        
-    
+        
+
+        # increment epoch
         global_epochs +=1
 
 """
@@ -96,7 +98,7 @@ def train(model, device, loss_criterion, optimizer, training_set, testing_set,ne
 
 """
 
-def eval(model, device, loss_criterion, testing_set):
+def eval_model(model, device, loss_criterion, testing_set):
     
     eval_progress_bar = tqdm(enumerate(testing_set))
     eval_running_loss = 0 
@@ -141,6 +143,9 @@ def plot_diff(train,evaluate):
 
 if __name__ == "__main__":
     
+
+    savename ="CIFAR-10_SGD"
+
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
 
