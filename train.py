@@ -190,7 +190,10 @@ if __name__ == "__main__":
     CrossEntropy = nn.CrossEntropyLoss()
 
     # Optimizer 
-    optimizer = optim.SGD(model.parameters(), lr=0.001)
+    optimizer = optim.SGD([params  for params in model.parameters() if params.requires_grad], lr=0.001)
+    
+    print("Total parameters : {}".format(sum(params.numel() for params in model.parameters())))
+    print("Trainable parameters : {}".format(sum(params.numel() for params in model.parameters() if params.requires_grad)))
 
 
     train(model, device, CrossEntropy, optimizer, train_loader, test_loader, nepochs) 
