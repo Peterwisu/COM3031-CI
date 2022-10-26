@@ -1,0 +1,12 @@
+matplotlib
+tensorboard
+opencv-python
+numpy
+tqdm
+pandas
+seaborn 
+scikit-learn
+
+
+
+
