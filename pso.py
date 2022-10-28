@@ -28,7 +28,8 @@ class PSO():
                   wmin=0.4, posMinInit=-3, posMaxInit=+ 5, pso_type='global',num_neighbours=None):
 
         # nunmber of Swarm
-        self.population_size = population_size
+        
+        self.population_size = population_size#100+int(particle_size/10)#population_size
         # Dimension of decision variable
         self.particle_size = particle_size
         # Max and Min initialize velocity 
@@ -43,7 +44,6 @@ class PSO():
         # Max and Min initialize position
         self.posMinInit = posMinInit
         self.posMaxInit = posMaxInit
-        
         # Objective Function 
         self.objective = objective 
         # Swarm population
@@ -59,6 +59,7 @@ class PSO():
         
         self.num_neighbours = num_neighbours
         
+        # probabilites for Social Learning Swarm
         self.prob = [0]*self.population_size
         for i  in range((self.population_size)):
             self.prob[self.population_size - i - 1] = 1 - i/(self.population_size - 1)
@@ -105,8 +106,10 @@ class PSO():
             r1 = random.uniform(0,1)
             r2 = random.uniform(0,1)
             r3 = random.uniform(0,1)
-            
-            demonstrator = random.choice(list(population[0:idx]))
+            print(idx)
+            if idx==1:
+                exit()
+            demonstrator = random.choice(list(self.population[0:idx]))
             epsilon =self.particle_size/100.0 * 0.01
              
             for i in range(self.particle_size):
@@ -122,9 +125,10 @@ class PSO():
         def objective_nn(self, data, labels):
             
             # set model to training stage 
-            self.model.train()
-            pred = self.model(data)
-            loss = self.objective(pred,labels).item() 
+            with torch.no_grad():
+                self.model.train()
+                pred = self.model(data)
+                loss = self.objective(pred,labels).item() 
             
             #print(loss)
             return (loss,) # ****return in tuple****
@@ -195,7 +199,10 @@ class PSO():
             layer.data = torch.nn.parameter.Parameter(torch.FloatTensor(weight).to(self.device))
             # increment counter
             params_count += layer.numel()
-            
+        
+        
+        
+           
     """
     Calculate Euclidean distance  
     
@@ -300,17 +307,20 @@ class PSO():
                 self.best.fitness.values = particle.fitness.values
                 
         if self.pso_type == "social":
-            print('s')
             
             self.population.sort(key=lambda x: x.fitness, reverse=True) 
             social_best = self.population[0]
+            temp = [x.fitness for x in self.population]
+            print(temp[0])
             center = self.getcenter(self.population)
             for i in reversed(range(len(self.population)-1)):
                 
+                
                 if random.uniform(0,1)<self.prob[i+1]:
-                    self.toolbox.update_sl(self, self.population[i+1], self.population, center, i+1)
-                
-                
+                    if i== 0 :
+                        print("error")
+                        
+                    self.toolbox.update_sl(self, self.population[i+1], self.population, center, i+1) 
            
         else :
         
@@ -333,8 +343,10 @@ class PSO():
         # print(self.best.fitness.values)
 
         if self.pso_type == "social":
+            
             self.weight_assign(social_best)
             loss = social_best.fitness.values[0]
+            
         else:
             self.weight_assign(self.best)
             loss = self.best.fitness.values[0]

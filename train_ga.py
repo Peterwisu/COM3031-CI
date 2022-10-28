@@ -19,15 +19,18 @@ from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt 
 import numpy as np
-from pso import PSO
+from ga import GA
 
 """
 
     Train Model
 
 """
-def train(pso, device, loss_criterion, training_set, testing_set,nepochs):
+def train(ga, device, loss_criterion, training_set, testing_set,nepochs):
     
+    
+    
+     
     global global_epochs
 
     global_epochs = 1
@@ -51,7 +54,7 @@ def train(pso, device, loss_criterion, training_set, testing_set,nepochs):
             images = images.to(device)
             labels = labels.to(device)
 
-            loss = pso.optimize_NN(global_epochs,nepochs,images,labels)
+            loss = ga.optimize_NN(images,labels)
 
             running_loss +=loss
             iter_inbatch +=1
@@ -61,7 +64,7 @@ def train(pso, device, loss_criterion, training_set, testing_set,nepochs):
 
         # get loss in current iteration
         train_loss = running_loss/iter_inbatch
-        eval_loss = eval_model(pso, device, loss_criterion, testing_set)
+        eval_loss = eval_model(ga, device, loss_criterion, testing_set)
         
         print("Epoch : {}, TRAIN LOSS : {}, EVAL LOSS : {} ".format(global_epochs,train_loss, eval_loss))
 
@@ -87,7 +90,7 @@ def train(pso, device, loss_criterion, training_set, testing_set,nepochs):
 
 """
 
-def eval_model(pso, device, loss_criterion, testing_set):
+def eval_model(ga, device, loss_criterion, testing_set):
     
     eval_progress_bar = enumerate(testing_set)
     eval_running_loss = 0 
@@ -99,7 +102,7 @@ def eval_model(pso, device, loss_criterion, testing_set):
             labels = labels.to(device)
             #  Set model to evaluation stage
             
-            emodel = pso.model
+            emodel = ga.model
             emodel.eval()
             
             predicted = emodel(images)
@@ -192,12 +195,14 @@ if __name__ == "__main__":
         print(len(i))
     """ 
 
-    pso = PSO(CrossEntropy,50, parameters_size, pso_type='global', num_neighbours=5)
-    pso.initNN(model=model,device=device)
-    #print(np.array(pso.population).shape)
-    print(pso.pso_type)
+    ga = GA(CrossEntropy,population_size=10,dimension=parameters_size,numOfBits=100)
+    ga.initNN(model=model,device=device, data=train_loader)
 
-    train(pso, device, CrossEntropy, train_loader, test_loader, nepochs) 
+
+    #print(np.array(pso.population).shape)
+    
+
+    train(ga, device, CrossEntropy, train_loader, test_loader, nepochs) 
 
     writer.close()
 
