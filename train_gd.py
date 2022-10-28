@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available else "cpu"
 
-    batch_size = 32
+    batch_size = 2
 
     nepochs = 10
 
