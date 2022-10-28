@@ -6,6 +6,7 @@ tqdm
 pandas
 seaborn 
 scikit-learn
+deap
 
 
 
