@@ -1,4 +1,7 @@
 matplotlib
+sympy
+torch
+torchvision
 tensorboard
 opencv-python
 numpy

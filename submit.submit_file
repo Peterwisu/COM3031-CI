@@ -1,0 +1,46 @@
+#########
+#
+# Example Job for HTCondor
+#
+####################
+
+# --------------------------------------
+# Executable and its arguments
+executable    = train.sh
+arguments     =
+
+# -----------------------------------
+# Universe (vanilla, docker)
+universe         = vanilla
+
+# -------------------------------------
+# Event, out and error logs
+log    = logs/c$(cluster).p$(process).log
+output = logs/c$(cluster).p$(process).out
+error  = logs/c$(cluster).p$(process).error
+
+# -----------------------------------
+# File Transfer, Input, Output
+should_transfer_files = YES
+
+
+environment = "mount=$ENV(PWD),/vol/research/AVGAN/Anaconda_Installation/anaconda3/,/vol/research/AVGAN/dataset"
+
+# -------------------------------------
+# Requirements for the Job (Requirements are explained in further detail in example09.submit_file)
+requirements = (HasStornext)
+
+# -------------------------------------
+# Resources
+request_GPUs     = 4
+request_CPUs     = 2
+request_memory = 40G
+
++CanCheckpoint = true
++GPUMem = 11000
++JobRunTime = 72
+
+# -----------------------------------
+# Queue commands
+
+queue 1

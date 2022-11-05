@@ -20,6 +20,7 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt 
 import numpy as np
 from pso import PSO
+from torch.nn import DataParallel
 
 """
 
@@ -38,14 +39,14 @@ def train(pso, device, loss_criterion, training_set, testing_set,nepochs):
 
     while global_epochs < nepochs+1:
 
-        progress_bar = enumerate(training_set)
+        progress_bar = tqdm((training_set))
         
         running_loss = 0  # Total loss in epochs
         iter_inbatch = 0  # Iteration in batch
         
         
 
-        for _ , (images, labels) in progress_bar:
+        for  (images, labels) in progress_bar:
             
             # move dataset to same device as model
             images = images.to(device)
@@ -67,15 +68,15 @@ def train(pso, device, loss_criterion, training_set, testing_set,nepochs):
 
         # append in array 
         train_logs = np.append(train_logs, train_loss)
-        eval_logs = np.append(eval_logs, eval_loss)
+  #      eval_logs = np.append(eval_logs, eval_loss)
         
         # Plot Figure
-        figure = plot_diff(train_logs, eval_logs)
+    #    figure = plot_diff(train_logs, eval_logs)
 
         # Add logs to tensorboard
         writer.add_scalar("Loss/Train",train_loss,global_epochs)
-        writer.add_scalar("Loss/Eval",eval_loss,global_epochs)
-        writer.add_figure("Loss/plot",figure,global_epochs)        
+   #     writer.add_scalar("Loss/Eval",eval_loss,global_epochs)
+    #    writer.add_figure("Loss/plot",figure,global_epochs)        
         
 
         # increment epoch
@@ -89,11 +90,11 @@ def train(pso, device, loss_criterion, training_set, testing_set,nepochs):
 
 def eval_model(pso, device, loss_criterion, testing_set):
     
-    eval_progress_bar = enumerate(testing_set)
+    eval_progress_bar = tqdm((testing_set))
     eval_running_loss = 0 
     eval_iter_inbatch = 0
     with torch.no_grad():
-        for _ , (images, labels) in eval_progress_bar:
+        for (images, labels) in eval_progress_bar:
 
             images = images.to(device)
             labels = labels.to(device)
@@ -142,12 +143,12 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available else "cpu"
 
-    #batch_size = 2
+    batch_size = 128
     
     nepochs = 100
 
     print("Using  **{}** as a device ".format(device))
-    #print("Batch Size : {}".format(batch_size))
+    print("Batch Size : {}".format(batch_size))
     print("Iteration : {} epochs".format(nepochs))
     
 
@@ -159,9 +160,9 @@ if __name__ == "__main__":
 
     testing_set  = torchvision.datasets.CIFAR10(root='./../data', train=False, download=True, transform=transform)
 
-    train_loader = DataLoader(training_set, batch_size=len(training_set), shuffle=True, num_workers=2)
+    train_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=True)
 
-    test_loader = DataLoader(testing_set, batch_size=len(testing_set), shuffle=False, num_workers=2)
+    test_loader = DataLoader(testing_set, batch_size=batch_size, shuffle=False, num_workers=2, drop_last=True)
 
     print("Training Dataset: {}".format(len(training_set)))
     print("Testing Dataset: {}".format(len(testing_set)))
@@ -175,7 +176,18 @@ if __name__ == "__main__":
     
     # Classifier Models
 
+    
+
     model = Classifier().to(device)
+
+    if device == "cuda" and torch.cuda.device_count() > 1 :
+
+        model = DataParallel(model) 
+        model.to(device)
+        print(" Usining {} gpu for training".format(torch.cuda.device_count()))
+        batch_size = batch_size * torch.cuda.device_count()
+
+
 
     # Loss function Objective function 
     CrossEntropy = nn.CrossEntropyLoss()
@@ -192,7 +204,7 @@ if __name__ == "__main__":
         print(len(i))
     """ 
 
-    pso = PSO(CrossEntropy,50, parameters_size, pso_type='global', num_neighbours=5)
+    pso = PSO(CrossEntropy,100, parameters_size, pso_type='social', num_neighbours=5)
     pso.initNN(model=model,device=device)
     #print(np.array(pso.population).shape)
     print(pso.pso_type)

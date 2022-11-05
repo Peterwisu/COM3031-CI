@@ -106,9 +106,7 @@ class PSO():
             r1 = random.uniform(0,1)
             r2 = random.uniform(0,1)
             r3 = random.uniform(0,1)
-            print(idx)
-            if idx==1:
-                exit()
+            #print(idx)
             demonstrator = random.choice(list(self.population[0:idx]))
             epsilon =self.particle_size/100.0 * 0.01
              
@@ -130,6 +128,7 @@ class PSO():
                 pred = self.model(data)
                 loss = self.objective(pred,labels).item() 
             
+            
             #print(loss)
             return (loss,) # ****return in tuple****
         
@@ -143,8 +142,7 @@ class PSO():
         # Deap Creator 
         self.creator  = creator
         self.creator.create("FitnessMin", base.Fitness, weights=(-1.0,)) 
-        self.creator.create("Particle", list, fitness=creator.FitnessMin, speed=list, smin=None,
-                            smax=None, best=None)
+        self.creator.create("Particle", list, fitness=creator.FitnessMin, speed=list, smin=None, smax=None, best=None)
         # Deap Toolbox
         self.toolbox = base.Toolbox()
         self.toolbox.register("particle", generate, self)
@@ -311,14 +309,12 @@ class PSO():
             self.population.sort(key=lambda x: x.fitness, reverse=True) 
             social_best = self.population[0]
             temp = [x.fitness for x in self.population]
-            print(temp[0])
+            #print(temp[0])
             center = self.getcenter(self.population)
             for i in reversed(range(len(self.population)-1)):
                 
                 
-                if random.uniform(0,1)<self.prob[i+1]:
-                    if i== 0 :
-                        print("error")
+                if random.uniform(0,1)<self.prob[i+1]: 
                         
                     self.toolbox.update_sl(self, self.population[i+1], self.population, center, i+1) 
            
@@ -350,6 +346,8 @@ class PSO():
         else:
             self.weight_assign(self.best)
             loss = self.best.fitness.values[0]
+
+        
         return loss
             
 

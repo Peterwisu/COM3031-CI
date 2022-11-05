@@ -89,7 +89,7 @@ class GA():
                 pred = self.model(data)
                 loss = self.objective(pred,labels).item()
                 
-            return (1/loss,)
+            return (loss,)
         
         
         """
@@ -108,7 +108,7 @@ class GA():
         self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
         self.toolbox.register("mate", tools.cxTwoPoint)
         self.toolbox.register("mutate",tools.mutFlipBit, indpb= self.flipProb)
-        self.toolbox.register("select",tools.selRoulette, fit_attr='fitness')
+        self.toolbox.register("select",tools.selTournament, fit_attr='fitness')
         
         self.toolbox.register("evaluate_nn",objective_nn)
         self.toolbox.register("evaluate", eval_sphere)
@@ -262,7 +262,7 @@ class GA():
     
     def optimize_NN(self, images, labels):
         
-        offspring = tools.selBest(self.population, self.nElistists) + self.toolbox.select(self.population, (self.population_size-self.nElistists))
+        offspring = tools.selBest(self.population, self.nElistists) + self.toolbox.select(self.population, (self.population_size-self.nElistists), (self.population_size-self.nElistists))
         
         offspring = list(map(self.toolbox.clone, offspring))
         
