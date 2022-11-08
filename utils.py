@@ -96,7 +96,7 @@ def roc_plot(pred_probas,gt_label, classes):
     # curve line for each classes
     for i in range(n_classes):
 
-        ax.plot( fpr[i], tpr[i], label="ROC curve of class {0} (area = {1:0.2f})".format(i,roc_auc[i]),)
+        ax.plot( fpr[i], tpr[i], label="ROC curve of class {0} (area = {1:0.2f})".format(  classes[i],roc_auc[i]),)
 
 
     ax.plot([0,1],[0,1], "k--", lw=2)
@@ -139,7 +139,7 @@ def cm_plot(pred_labels, gt_labels, class_name):
     
     # calculate a matrix
     cm = confusion_matrix(gt_labels, pred_labels,normalize="all")
-
+    cm = (cm *  10000)
     cm_df = pd.DataFrame(cm, index =class_name, columns = class_name)
 
     # plot fig
