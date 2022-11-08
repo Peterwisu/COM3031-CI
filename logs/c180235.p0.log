@@ -12,3 +12,22 @@
 	3  -  MemoryUsage of job (MB)
 	2116  -  ResidentSetSize of job (KB)
 ...
+006 (180235.000.000) 2022-11-08 19:21:27 Image size of job updated: 323336
+	101  -  MemoryUsage of job (MB)
+	103616  -  ResidentSetSize of job (KB)
+...
+004 (180235.000.000) 2022-11-08 19:21:27 Job was evicted.
+	(0) CPU times
+		Usr 0 00:00:11, Sys 0 00:00:09  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	Partitionable Resources :    Usage  Request Allocated Assigned
+	   Cpus                 :     0.00        4         4 
+	   Disk (KB)            :    34         125    648785 
+	   Gpus (Average)       :     0           4         4 "CUDA0,CUDA1,CUDA2,CUDA3"
+	   GpusMemory (MB)      :     5                       
+	   Memory (MB)          :   101       40960     40960 
+...
+009 (180235.000.000) 2022-11-08 19:21:27 Job was aborted.
+...
