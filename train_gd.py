@@ -12,6 +12,7 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader  as DataLoader 
+from torch.utils.data import random_split
 import matplotlib.pyplot as plt
 import cv2
 from tqdm import tqdm
@@ -68,7 +69,7 @@ returns
 
     None
 """
-def train(model, device, loss_criterion, optimizer, training_set, testing_set,nepochs, classes):
+def train(model, device, loss_criterion, optimizer, training_set, validation_set,nepochs, classes):
     
     global global_epochs
 
@@ -76,9 +77,9 @@ def train(model, device, loss_criterion, optimizer, training_set, testing_set,ne
     
     # array of logs
     loss_train_logs = np.array([])
-    loss_eval_logs  = np.array([])
+    loss_vali_logs  = np.array([])
     acc_train_logs = np.array([])
-    acc_eval_logs = np.array([])
+    acc_vali_logs = np.array([])
 
     while global_epochs < nepochs+1:
 
@@ -122,26 +123,26 @@ def train(model, device, loss_criterion, optimizer, training_set, testing_set,ne
         train_acc = running_acc/iter_inbatch
 
         # calculate evaluation loss and accuracy
-        # Plot confusion matrix and ROC curve with evaluation results
-        eval_loss , eval_acc ,cm_plot , roc_plot = eval_model(model, device, loss_criterion, testing_set, classes)
+        # Plot confusion matrix and ROC curve with evaluation results ( Validation
+        vali_loss , vali_acc ,cm_plot , roc_plot = eval_model(model, device, loss_criterion, validation_set, classes)
 
         # append loss and accuracy in current epochs in array
         loss_train_logs = np.append(loss_train_logs, train_loss)
-        loss_eval_logs = np.append(loss_eval_logs, eval_loss)
+        loss_vali_logs = np.append(loss_vali_logs, vali_loss)
         acc_train_logs = np.append(acc_train_logs, train_acc)
-        acc_eval_logs = np.append(acc_eval_logs,eval_acc)
+        acc_vali_logs = np.append(acc_vali_logs,vali_acc)
         
         # Plot Figure
-        loss_figure = plot_diff(loss_train_logs, loss_eval_logs) # loss different
-        acc_figure = plot_diff(acc_train_logs, acc_eval_logs) # accuracy different
+        loss_figure = plot_diff(loss_train_logs, loss_vali_logs,'loss') # loss different
+        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'accuracy') # accuracy different
 
 
         # Add logs to tensorboard
         # add scalar values
         writer.add_scalar("Loss/Train",train_loss,global_epochs)
-        writer.add_scalar("Loss/Eval",eval_loss,global_epochs)
+        writer.add_scalar("Loss/Vali",vali_loss,global_epochs)
         writer.add_scalar("Acc/Train",train_acc,global_epochs)
-        writer.add_scalar("Acc/Eval", eval_acc, global_epochs)
+        writer.add_scalar("Acc/Vali", vali_acc, global_epochs)
         
         # add figures
         writer.add_figure("Plot/loss",loss_figure,global_epochs)
@@ -151,12 +152,28 @@ def train(model, device, loss_criterion, optimizer, training_set, testing_set,ne
 
 
         # save alls logs to csv files
-        save_logs(loss_train_logs, loss_eval_logs, acc_train_logs, acc_eval_logs, save_name='gd_logs.csv')
+        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name='gd_logs.csv')
         
 
         # increment epoch
         global_epochs +=1
 
+
+def test(model, device, loss_criterion, testing_set, classes):
+
+    print("Testing Stage")
+
+    test_loss, test_acc, test_cm_plot, test_roc_plot = eval_model(model, device, loss_criterion, testing_set, classes, stage="Testing")
+
+    print("**Testing stage** LOSS : {} , Accuracy : {} ".format(test_loss, test_acc))
+
+    writer.add_figure("Plot/test_cm",test_cm_plot,1)
+    writer.add_figure("Plot/test_roc", test_roc_plot,1)
+
+    
+    
+
+    
 
 
 """
@@ -193,9 +210,9 @@ returns
 
 """
 
-def eval_model(model, device, loss_criterion, testing_set, classes):
+def eval_model(model, device, loss_criterion, eval_set, classes, stage='Validation'):
     
-    eval_progress_bar = tqdm(enumerate(testing_set))
+    eval_progress_bar = tqdm(enumerate(eval_set))
 
 
     eval_running_acc = 0
@@ -207,30 +224,30 @@ def eval_model(model, device, loss_criterion, testing_set, classes):
     eval_pred_probas = []
     eval_gt_labels = np.array([])
     
- 
-    for _ , (images, labels) in eval_progress_bar:
+    with torch.no_grad(): 
+        for _ , (images, labels) in eval_progress_bar:
 
-        images = images.to(device)
-        labels = labels.to(device)
-        #  Set model to evaluation stage
-        model.eval()
+            images = images.to(device)
+            labels = labels.to(device)
+            #  Set model to evaluation stage
+            model.eval()
 
-        predicted = model(images)
+            predicted = model(images)
 
-        # calculate loss
-        eval_loss, eval_acc, pred_label, gt_label, pred_proba = objective(predicted,labels,loss_criterion)
+            # calculate loss
+            eval_loss, eval_acc, pred_label, gt_label, pred_proba = objective(predicted,labels,loss_criterion)
 
-        eval_pred_labels = np.append(eval_pred_labels , pred_label)
+            eval_pred_labels = np.append(eval_pred_labels , pred_label)
 
-        eval_pred_probas.append(pred_proba)
+            eval_pred_probas.append(pred_proba)
 
-        eval_gt_labels = np.append(eval_gt_labels, gt_label)
+            eval_gt_labels = np.append(eval_gt_labels, gt_label)
 
-        eval_running_loss += eval_loss.item()
-        eval_running_acc += eval_acc
-        eval_iter_inbatch +=1
+            eval_running_loss += eval_loss.item()
+            eval_running_acc += eval_acc
+            eval_iter_inbatch +=1
 
-        eval_progress_bar.set_description("Evaluation Epochs : {} , Loss : {}, Accuracy : {}".format(global_epochs, (eval_running_loss/eval_iter_inbatch),(eval_running_acc/eval_iter_inbatch)))
+            eval_progress_bar.set_description("{} Epochs : {} , Loss : {}, Accuracy : {}".format(stage, global_epochs, (eval_running_loss/eval_iter_inbatch),(eval_running_acc/eval_iter_inbatch)))
 
     # concatenate probabilites array in to a shape  of (Number of image, prob of n_classes) 
     # this contains probabilites predict for each classes for each images
@@ -283,7 +300,7 @@ def objective(predicted, labels, loss_criterion):
     
 
     # calcuate an objective loss 
-    loss = loss_criterion(predicted, labels)
+    loss = loss_criterion(softmax(predicted), labels)
     
     # get probabilites of each label
     proba = softmax(predicted).cpu().detach().numpy()
@@ -337,18 +354,29 @@ if __name__ == "__main__":
     
 
     print("Loading dataset ....")
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
+    transform = transforms.Compose([transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
+                                    transforms.RandomRotation(degrees=(0, 180)),
+                                    
+                                    transforms.RandomGrayscale(p=0.1),
+                                    transforms.ToTensor(), 
+                                    transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
     
     # Prepare Dataset
     training_set = torchvision.datasets.CIFAR10(root='./../data', train=True, download=True, transform=transform)
 
     testing_set  = torchvision.datasets.CIFAR10(root='./../data', train=False, download=True, transform=transform)
 
-    train_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True, num_workers=2)
 
+    training_data, validation_data = random_split(training_set, [40000, 10000])
+    
+    
+
+    train_loader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=2)
+    validation_loader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=2)
     test_loader = DataLoader(testing_set, batch_size=batch_size, shuffle=True, num_workers=2)
 
-    print("Training Dataset: {}".format(len(training_set)))
+    print("Training Dataset: {}".format(len(training_data)))
+    print("Validation Dataset: {}".format(len(validation_data)))
     print("Testing Dataset: {}".format(len(testing_set)))
     
     # labels of dataset
@@ -365,13 +393,15 @@ if __name__ == "__main__":
     CrossEntropy = nn.CrossEntropyLoss()
 
     # Optimizer 
-    optimizer = optim.SGD([params  for params in model.parameters() if params.requires_grad], lr=0.001)
+    optimizer = optim.Adam([params  for params in model.parameters() if params.requires_grad], lr=0.001)
     
     print("Total parameters : {}".format(sum(params.numel() for params in model.parameters())))
     print("Trainable parameters : {}".format(sum(params.numel() for params in model.parameters() if params.requires_grad)))
 
 
-    train(model, device, CrossEntropy, optimizer, train_loader, test_loader, nepochs, classes) 
+    train(model, device, CrossEntropy, optimizer, train_loader, validation_loader, nepochs, classes) 
+
+    test(model, device, CrossEntropy, test_loader, classes)
     
     # close tensorboard writer
     writer.close()

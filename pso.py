@@ -6,6 +6,7 @@
 """
 
 import torch 
+import torch.nn
 from deap import base
 from deap import benchmarks
 from deap import creator
@@ -16,6 +17,9 @@ import numpy as np
 import math
 TYPE = ['global','local','social','competitive']
 
+
+# softmax activation function
+softmax = torch.nn.Softmax(dim=1)
 class PSO():
 
     """
@@ -24,8 +28,8 @@ class PSO():
         
     """
     def __init__ (self, objective, population_size: int, 
-                  particle_size: int, vmaxInit=1.5, vminInit=0.5,c1=2, c2=2, wmax=0.9,
-                  wmin=0.4, posMinInit=-3, posMaxInit=+ 5, pso_type='global',num_neighbours=None):
+                  particle_size: int, vmaxInit=1.5, vminInit=0.2,c1=2, c2=2, wmax=0.6,
+                  wmin=0.4, posMinInit=-.2, posMaxInit=+.2, pso_type='global',num_neighbours=None):
 
         # nunmber of Swarm
         
@@ -115,6 +119,7 @@ class PSO():
                 particle.speed[i] = r1*particle.speed[i] + r2*(demonstrator[i]-particle[i]) + r3*epsilon*(center[i]-particle[i]) 
                 particle[i] = particle[i] + particle.speed[i]
                 
+                
         
         
         """
@@ -122,15 +127,38 @@ class PSO():
         """ 
         def objective_nn(self, data, labels):
             
-            # set model to training stage 
             with torch.no_grad():
+                # set model to training stage 
+                
                 self.model.train()
-                pred = self.model(data)
-                loss = self.objective(pred,labels).item() 
+                pred = self.model(data).detach()
+                #print(pred)
+                
+                loss = self.objective(softmax(pred),labels).item()
+                
+                 # get probabilites of each label
+                proba = softmax(pred).cpu().detach().numpy()
+                # get predicted label
+                pred_labels = [np.argmax(i) for i in proba]
+                pred_labels = np.array(pred_labels)
+
+                
+                # Calculated accuracy 
+                correct = 0
+                accuracy = 0
+                
+                # allocate label to cpu
+                gt_labels = labels.cpu().detach().numpy()
+
+                for p ,g in zip(pred_labels,gt_labels):
+
+                    if p == g:
+                        correct+=1
+
+                accuracy = 100 * (correct/len(gt_labels))
             
             
-            #print(loss)
-            return (loss,) # ****return in tuple****
+            return (loss,) , accuracy  # ****return in tuple****
         
         
         """
@@ -142,7 +170,7 @@ class PSO():
         # Deap Creator 
         self.creator  = creator
         self.creator.create("FitnessMin", base.Fitness, weights=(-1.0,)) 
-        self.creator.create("Particle", list, fitness=creator.FitnessMin, speed=list, smin=None, smax=None, best=None)
+        self.creator.create("Particle", list, fitness=creator.FitnessMin, speed=list,acc=list, smin=None, smax=None, best=None)
         # Deap Toolbox
         self.toolbox = base.Toolbox()
         self.toolbox.register("particle", generate, self)
@@ -189,14 +217,19 @@ class PSO():
        
         #  counter 
         params_count = 0
-        for layer in self.model.parameters():
-            
-            #  select a weight from numpy array and reshape it into the same shape as the tensor 
-            weight =part[params_count:params_count+layer.numel()].reshape(layer.data.shape)
-            # convert weight to tensor and assign a weight to model 
-            layer.data = torch.nn.parameter.Parameter(torch.FloatTensor(weight).to(self.device))
-            # increment counter
-            params_count += layer.numel()
+        with torch.no_grad():
+            for layer in self.model.parameters():
+                
+                if layer.requires_grad:
+                    #  select a weight from numpy array and reshape it into the same shape as the tensor 
+                    weight =part[params_count:params_count+layer.numel()].reshape(layer.data.shape)
+                    # convert weight to t ensor and assign a weight to model 
+                    layer.data = torch.nn.parameter.Parameter(torch.FloatTensor(weight).to(self.device))
+                    # increment counter
+                    
+                    params_count += layer.numel()
+                
+    
         
         
         
@@ -292,17 +325,19 @@ class PSO():
             self.weight_assign(particle)
             
             # Calculate a fitness
-            particle.fitness.values = self.toolbox.evaluate_nn(self, data, gt)
+            particle.fitness.values, particle.acc = self.toolbox.evaluate_nn(self, data, gt)
             
             if (not particle.best) or (particle.best.fitness < particle.fitness):
                 
                 particle.best = creator.Particle(particle)
                 particle.best.fitness.values = particle.fitness.values
+                particle.best.acc = particle.acc
                 
             if (not self.best) or self.best.fitness < particle.fitness:
                 
                 self.best = self.creator.Particle(particle)
                 self.best.fitness.values = particle.fitness.values
+                self.best.acc = particle.acc
                 
         if self.pso_type == "social":
             
@@ -346,9 +381,10 @@ class PSO():
         else:
             self.weight_assign(self.best)
             loss = self.best.fitness.values[0]
+            acc = self.best.acc
 
         
-        return loss
+        return loss, acc
             
 
 """ Test code"""

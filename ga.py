@@ -204,8 +204,9 @@ class GA():
         for layer in self.model.parameters():
             
             weight = ind[params_count: params_count+layer.numel()].reshape(layer.data.shape)
+            print(layer)
             
-            layer.data = torch.nn.parameter.Parameter( torch.FloatTensor(weight).to(self.device))
+            layer.data = torch.nn.parameter.Parameter(torch.FloatTensor(weight).to(self.device))
             
             params_count += layer.numel()
              

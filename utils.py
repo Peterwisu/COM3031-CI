@@ -175,13 +175,13 @@ returns
 
 
 """
-def plot_diff(train,evaluate):
+def plot_diff(train,evaluate, name):
     
     fig, (ax) = plt.subplots(nrows=1,ncols=1)
     ax.plot(train, color='r' , label='Train')
     ax.plot(evaluate, color='b', label='Eval')
     ax.legend(loc="upper right")
-    ax.set_title("Loss")
+    ax.set_title("{}".format(name))
     figure = ax.get_figure()
     plt.close(fig)
     

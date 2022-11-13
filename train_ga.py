@@ -188,14 +188,18 @@ if __name__ == "__main__":
 
     parameters_size =sum(params.numel() for params in model.parameters())
     
-    """
+    
    
     for i in model.parameters():
 
         print(len(i))
-    """ 
 
-    ga = GA(CrossEntropy,population_size=10,dimension=parameters_size,numOfBits=100)
+    for name, param in model.named_parameters():
+
+        print(name ,param.shape)
+    exit()
+
+    ga = GA(CrossEntropy,population_size=2,dimension=parameters_size,numOfBits=30)
     ga.initNN(model=model,device=device, data=train_loader)
 
 
