@@ -20,13 +20,18 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt 
 import numpy as np
 from ga import GA
+from utils import save_logs , plot_diff ,cm_plot ,roc_plot
+
+
+# softmax activation function
+softmax = nn.Softmax(dim=1)
 
 """
 
     Train Model
 
 """
-def train(ga, device, loss_criterion, training_set, testing_set,nepochs):
+def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes):
     
     
     
@@ -36,51 +41,70 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs):
     global_epochs = 1
     
     # array of logs
-    train_logs = np.array([])
-    eval_logs  = np.array([])
-
+    loss_train_logs = np.array([])
+    loss_vali_logs  = np.array([])
+    acc_train_logs = np.array([])
+    acc_vali_logs = np.array([])
+    print('Start training')
     while global_epochs < nepochs+1:
 
-        progress_bar = enumerate(training_set)
-        
+        progress_bar = tqdm((training_set))
+        running_acc = 0 
         running_loss = 0  # Total loss in epochs
         iter_inbatch = 0  # Iteration in batch
         
         
 
-        for _ , (images, labels) in progress_bar:
+        for  (images, labels) in progress_bar:
             
             # move dataset to same device as model
             images = images.to(device)
             labels = labels.to(device)
 
-            loss = ga.optimize_NN(images,labels)
+            loss,  acc = ga.optimize_NN(images,labels)
+            
 
             running_loss +=loss
+            running_acc +=acc
             iter_inbatch +=1
             
             
             #progress_bar.set_description("Training Epochs : {} , Loss : {}".format(global_epochs,(running_loss/iter_inbatch)))
 
         # get loss in current iteration
+        train_acc = running_acc/iter_inbatch
         train_loss = running_loss/iter_inbatch
-        eval_loss = eval_model(ga, device, loss_criterion, testing_set)
+        vali_loss, vali_acc , cm_plot , roc_plot = eval_model(ga, device, loss_criterion, testing_set, classes)
         
-        print("Epoch : {}, TRAIN LOSS : {}, EVAL LOSS : {} ".format(global_epochs,train_loss, eval_loss))
+        print("Epoch : {}, TRAIN LOSS : {}, TRAIN ACC : {} , VALI LOSS : {} , VALI ACC : {}".format(global_epochs,train_loss, train_acc, vali_loss, vali_acc))
 
         # append in array 
-        train_logs = np.append(train_logs, train_loss)
-        eval_logs = np.append(eval_logs, eval_loss)
+        loss_train_logs = np.append(loss_train_logs, train_loss)
+        loss_vali_logs = np.append(loss_vali_logs, vali_loss)
+        
+        acc_train_logs = np.append(acc_train_logs, train_acc)
+        acc_vali_logs = np.append(acc_vali_logs, vali_acc)
         
         # Plot Figure
-        figure = plot_diff(train_logs, eval_logs)
+        loss_figure = plot_diff(loss_train_logs, loss_vali_logs," GA Loss")
+        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'GA Accuracy') # accuracy different
+
 
         # Add logs to tensorboard
         writer.add_scalar("Loss/Train",train_loss,global_epochs)
-        writer.add_scalar("Loss/Eval",eval_loss,global_epochs)
-        writer.add_figure("Loss/plot",figure,global_epochs)        
+        writer.add_scalar("Loss/Vali",vali_loss,global_epochs)
+        writer.add_scalar("Acc/Train",train_acc,global_epochs)
+        writer.add_scalar("Acc/Vali", vali_acc,global_epochs)
         
-
+        writer.add_figure("Plot/loss",loss_figure,global_epochs)  
+        writer.add_figure("Plot/acc",acc_figure,global_epochs) 
+        writer.add_figure("Plot/cm",cm_plot,global_epochs) 
+        writer.add_figure("Plot/roc",roc_plot,global_epochs)       
+        
+        # save alls logs to csv files
+        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name='ga_logs.csv')    
+        
+        
         # increment epoch
         global_epochs +=1
 
@@ -90,11 +114,17 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs):
 
 """
 
-def eval_model(ga, device, loss_criterion, testing_set):
+def eval_model(ga, device, loss_criterion, testing_set,classes):
     
     eval_progress_bar = enumerate(testing_set)
     eval_running_loss = 0 
+    eval_running_acc = 0
     eval_iter_inbatch = 0
+    
+    # store a predict proba and label in array and also its ground truth
+    eval_pred_labels = np.array([])
+    eval_pred_probas = []
+    eval_gt_labels = np.array([])
     with torch.no_grad():
         for _ , (images, labels) in eval_progress_bar:
 
@@ -108,7 +138,15 @@ def eval_model(ga, device, loss_criterion, testing_set):
             predicted = emodel(images)
 
             # calculate loss
-            eval_loss = loss_criterion(predicted,labels)
+            eval_loss, eval_acc, pred_label, gt_label, pred_proba = objective(predicted,labels,loss_criterion)
+        
+            eval_pred_labels = np.append(eval_pred_labels , pred_label)
+
+            eval_pred_probas.append(pred_proba)
+
+            eval_gt_labels = np.append(eval_gt_labels, gt_label)
+
+            eval_running_acc +=eval_acc
 
             eval_running_loss += eval_loss.item()
 
@@ -116,36 +154,60 @@ def eval_model(ga, device, loss_criterion, testing_set):
 
             #eval_progress_bar.set_description("Evaluation Epochs : {} , Loss : {}".format(global_epochs, (eval_running_loss/eval_iter_inbatch)))
 
-    
-    return eval_running_loss/eval_iter_inbatch
+     # concatenate probabilites array in to a shape  of (Number of image, prob of n_classes) 
+    # this contains probabilites predict for each classes for each images
+    eval_pred_probas = np.concatenate(eval_pred_probas,axis=0)
 
-"""
-Plot loss difference
-"""
-def plot_diff(train,evaluate):
+    # Plot ROC curve
+    roc_fig = roc_plot(eval_pred_probas,eval_gt_labels, classes)
+    # Plot Confusion matrix
+    cm_fig = cm_plot(eval_pred_labels, eval_gt_labels, classes) 
     
-    fig, (ax) = plt.subplots(nrows=1,ncols=1)
-    ax.plot(train, color='r' , label='Train')
-    ax.plot(evaluate, color='b', label='Eval')
-    ax.legend(loc="upper right")
-    ax.set_title("Loss")
-    figure = ax.get_figure()
-    plt.close(fig)
+    return (eval_running_loss/eval_iter_inbatch) , (eval_running_acc/eval_iter_inbatch) ,cm_fig, roc_fig
+
+def objective(predicted, labels, loss_criterion):
     
-    return figure
+
+    # calcuate an objective loss 
+    loss = loss_criterion(softmax(predicted), labels)
     
+    # get probabilites of each label
+    proba = softmax(predicted).cpu().detach().numpy()
+    # get predicted label
+    pred_labels = [np.argmax(i) for i in proba]
+    pred_labels = np.array(pred_labels)
+
+    
+    # Calculated accuracy 
+    correct = 0
+    accuracy = 0
+    
+    # allocate label to cpu
+    gt_labels = labels.cpu().detach().numpy()
+
+    for p ,g in zip(pred_labels,gt_labels):
+
+        if p == g:
+            correct+=1
+
+    accuracy = 100 * (correct/len(gt_labels))
+    
+    # return (loss, accuracy,  predicted labels, ground truth labels, predicted probabilites)
+    return  loss, accuracy, pred_labels, gt_labels, proba
+
+
 
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_SGD"
+    savename ="CIFAR-10_GA"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
 
     device = "cuda" if torch.cuda.is_available else "cpu"
 
-    #batch_size = 2
+    batch_size = 100
     
     nepochs = 100
 
@@ -170,15 +232,15 @@ if __name__ == "__main__":
     print("Testing Dataset: {}".format(len(testing_set)))
     
     # labels of dataset
-    classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    classes = ['plane', 'car', 'bird', 'cat',
+           'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
     print("Classes in dataset  : {} ".format(classes))
 
     
     # Classifier Models
 
-    model = Classifier().to(device)
+    model = Classifier(size="small").to(device)
 
     # Loss function Objective function 
     CrossEntropy = nn.CrossEntropyLoss()
@@ -188,7 +250,7 @@ if __name__ == "__main__":
 
     parameters_size =sum(params.numel() for params in model.parameters())
     
-    
+    """    
    
     for i in model.parameters():
 
@@ -198,15 +260,17 @@ if __name__ == "__main__":
 
         print(name ,param.shape)
     exit()
-
-    ga = GA(CrossEntropy,population_size=2,dimension=parameters_size,numOfBits=30)
+    """
+    ga = GA(CrossEntropy,population_size=50,dimension=parameters_size,numOfBits=50)
+    print("Initializing poppulation")
     ga.initNN(model=model,device=device, data=train_loader)
+    print("Finish initializing population")
 
 
     #print(np.array(pso.population).shape)
     
 
-    train(ga, device, CrossEntropy, train_loader, test_loader, nepochs) 
+    train(ga, device, CrossEntropy, train_loader, test_loader, nepochs, classes) 
 
     writer.close()
 

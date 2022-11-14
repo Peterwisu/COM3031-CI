@@ -28,6 +28,7 @@ from sklearn.preprocessing import label_binarize
 import seaborn as sns
 import pandas as pd
 import os
+import math
 
 # import utility function 
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
@@ -35,6 +36,10 @@ from utils import save_logs , plot_diff ,cm_plot ,roc_plot
 
 # softmax activation function
 softmax = nn.Softmax(dim=1)
+
+# LAMBDA
+
+lamda = 0.001
 
 
 """
@@ -80,12 +85,16 @@ def train(model, device, loss_criterion, optimizer, training_set, validation_set
     loss_vali_logs  = np.array([])
     acc_train_logs = np.array([])
     acc_vali_logs = np.array([])
+    reg_train_logs = np.array([])
+    obj_train_logs = np.array([])
 
     while global_epochs < nepochs+1:
 
         progress_bar = tqdm(enumerate(training_set))
         
         running_loss = 0  # Total loss in epochs
+        running_obj = 0 
+        running_reg = 0
         running_acc = 0
         iter_inbatch = 0  # Iteration in batch
 
@@ -105,22 +114,45 @@ def train(model, device, loss_criterion, optimizer, training_set, validation_set
             predicted = model(images)
 
             # calculate loss 
-            loss,acc , _ ,_ ,_= objective(predicted, labels, loss_criterion)
+            obj_loss,acc , _ ,_ ,_= objective(predicted, labels, loss_criterion)
+
+
+            # regularisation term (weight penalty)
+            reg_norm = gaussian_regularizer(model, device)
+            
+            # Total loss = Objective  +  weight penalty
+            loss = obj_loss #+ (lamda  * reg_norm)
+            """ 
+            print(obj_loss)
+            print(reg_norm)
+            print(loss)
+            """
+
+            
  
 
             # backprop and optmizer update weight
             loss.backward()
             optimizer.step()
-            running_acc +=acc 
-            running_loss +=loss.item()
+            running_obj += obj_loss.item()
+            running_reg += reg_norm.item()
+            running_acc += acc 
+            running_loss += loss.item()
             iter_inbatch +=1
             
             
-            progress_bar.set_description("Training Epochs : {} , Loss : {} , Acc : {} ".format(global_epochs,(running_loss/iter_inbatch), (running_acc/iter_inbatch)))
+            progress_bar.set_description("Training Epochs : {} , Acc : {} , Loss : {} , Obj : {} , Reg : {}   ".format(global_epochs,
+                                                                                                    (running_acc/iter_inbatch), 
+                                                                                                    (running_loss/iter_inbatch),
+                                                                                                    (running_obj/iter_inbatch),
+                                                                                                    (running_reg/iter_inbatch)
+                                                                                                     ))
 
         # get loss in current epoch
         train_loss = running_loss/iter_inbatch # calculate a mean loss (total loss / iteration)
         train_acc = running_acc/iter_inbatch
+        train_obj = running_obj/iter_inbatch
+        train_reg = running_reg/iter_inbatch
 
         # calculate evaluation loss and accuracy
         # Plot confusion matrix and ROC curve with evaluation results ( Validation
@@ -131,6 +163,10 @@ def train(model, device, loss_criterion, optimizer, training_set, validation_set
         loss_vali_logs = np.append(loss_vali_logs, vali_loss)
         acc_train_logs = np.append(acc_train_logs, train_acc)
         acc_vali_logs = np.append(acc_vali_logs,vali_acc)
+        
+        # optimizing logs
+        reg_train_logs = np.append(reg_train_logs, train_reg)
+        obj_train_logs = np.append(obj_train_logs, train_obj)
         
         # Plot Figure
         loss_figure = plot_diff(loss_train_logs, loss_vali_logs,'loss') # loss different
@@ -143,6 +179,8 @@ def train(model, device, loss_criterion, optimizer, training_set, validation_set
         writer.add_scalar("Loss/Vali",vali_loss,global_epochs)
         writer.add_scalar("Acc/Train",train_acc,global_epochs)
         writer.add_scalar("Acc/Vali", vali_acc, global_epochs)
+        writer.add_scalar("Opt/reg", train_reg, global_epochs)
+        writer.add_scalar("Opt/obj", train_obj, global_epochs)
         
         # add figures
         writer.add_figure("Plot/loss",loss_figure,global_epochs)
@@ -298,12 +336,13 @@ returns
 
 def objective(predicted, labels, loss_criterion):
     
-
+    # get probabilities of each labels 
+    proba = softmax(predicted)
     # calcuate an objective loss 
     loss = loss_criterion(softmax(predicted), labels)
     
-    # get probabilites of each label
-    proba = softmax(predicted).cpu().detach().numpy()
+    
+    proba = proba.cpu().detach().numpy()
     # get predicted label
     pred_labels = [np.argmax(i) for i in proba]
     pred_labels = np.array(pred_labels)
@@ -331,13 +370,54 @@ def objective(predicted, labels, loss_criterion):
 
 
 """
+*********************
+Gaussian Regulariser: 
+*********************
+
+******
+inputs
+******
+
+    model : model that is optimzing
+
+    device : device of that tensor containing a model's parameters 
+
+*******
+outputs
+*******
+
+    l2_norm : Total sum square of a model weight
+
+
+"""
+def gaussian_regularizer(model,device):
+
+    # # Total sum square weight
+    l2_norm = torch.tensor(0.).to(device)
+
+    for params in model.parameters():
+
+
+        #l2_norm  += torch.norm(params)
+        #l2_norm  += params.norm(2)
+        l2_norm += params.square().sum()
+
+
+
+    return l2_norm
+
+        
+
+
+
+"""
 Main function  
 """
 
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_SGD"
+    savename ="SECTION5"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -393,10 +473,34 @@ if __name__ == "__main__":
     CrossEntropy = nn.CrossEntropyLoss()
 
     # Optimizer 
-    optimizer = optim.Adam([params  for params in model.parameters() if params.requires_grad], lr=0.001)
+    optimizer = optim.SGD([params  for params in model.parameters() if params.requires_grad], 
+                          lr=0.001, 
+                          weight_decay=0.001
+                          )
     
     print("Total parameters : {}".format(sum(params.numel() for params in model.parameters())))
     print("Trainable parameters : {}".format(sum(params.numel() for params in model.parameters() if params.requires_grad)))
+
+
+    """    
+    pc = 0
+    i =0
+    reg =  torch.tensor(0.).to(device)
+    print(reg)
+    for params in model.parameters():
+        
+    
+        test = math.sqrt(sum((params.reshape(-1))**2))
+        pc +=test
+
+    
+        reg += torch.norm(params)
+    
+        
+    print(reg.requires_grad)
+    print(pc)
+    """ 
+
 
 
     train(model, device, CrossEntropy, optimizer, train_loader, validation_loader, nepochs, classes) 

@@ -160,6 +160,8 @@ def eval_model(pso, device, loss_criterion, testing_set, classes):
 
             #eval_progress_bar.set_description("Evaluation Epochs : {} , Loss : {}".format(global_epochs, (eval_running_loss/eval_iter_inbatch)))
 
+
+
     # concatenate probabilites array in to a shape  of (Number of image, prob of n_classes) 
     # this contains probabilites predict for each classes for each images
     eval_pred_probas = np.concatenate(eval_pred_probas,axis=0)
@@ -288,7 +290,7 @@ if __name__ == "__main__":
 
     
     
-    model = Classifier().to(device)
+    model = Classifier(size="small").to(device)
 
     if device == "cuda" and torch.cuda.device_count() > 1 :
 
@@ -315,7 +317,7 @@ if __name__ == "__main__":
     
     
 
-    pso = PSO(CrossEntropy,25, parameters_size, pso_type='global', num_neighbours=5)
+    pso = PSO(CrossEntropy,100, parameters_size, pso_type='global', num_neighbours=5)
     pso.initNN(model=model,device=device)
     print(np.array(pso.population).shape)
     print(pso.pso_type)

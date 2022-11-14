@@ -273,11 +273,7 @@ class PSO():
 
              
     """
-    Optimize
-    
-    Inputs 
-     
-    return 
+    Not for NN
     """ 
     def optimize(self,iter_no,nepoch):
         
@@ -377,6 +373,7 @@ class PSO():
             
             self.weight_assign(social_best)
             loss = social_best.fitness.values[0]
+            acc  = self.best.acc
             
         else:
             self.weight_assign(self.best)
