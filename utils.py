@@ -17,7 +17,44 @@ import os
 
 
 
+"""
+*********************
+Gaussian Regulariser: 
+*********************
 
+******
+inputs
+******
+
+    model : model that is optimzing
+
+    device : device of that tensor containing a model's parameters 
+
+*******
+outputs
+*******
+
+    l2_norm : Total sum square of a model weight
+
+
+"""
+def gaussian_regularizer(model,device):
+
+    # # Total sum square weight
+    l2_norm = torch.tensor(0.).to(device)
+
+    for params in model.parameters():
+
+
+        #l2_norm  += torch.norm(params)
+        #l2_norm  += params.norm(2)
+        l2_norm += params.square().sum()
+
+
+
+    return l2_norm
+
+        
 
 """
 **************

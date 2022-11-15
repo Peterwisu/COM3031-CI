@@ -19,7 +19,7 @@ from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt 
 import numpy as np
-from ga import GA
+from nsga2 import NSGA_II
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
 
 
@@ -51,6 +51,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         progress_bar = tqdm((training_set))
         running_acc = 0 
         running_loss = 0  # Total loss in epochs
+        running_reg = 0
         iter_inbatch = 0  # Iteration in batch
         
         
@@ -61,10 +62,11 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
             images = images.to(device)
             labels = labels.to(device)
 
-            loss,  acc = ga.optimize_NN(images,labels)
+            loss, reg,  acc = ga.optimize_NN(images,labels)
             
 
             running_loss +=loss
+            running_reg +=reg
             running_acc +=acc
             iter_inbatch +=1
             
@@ -74,9 +76,10 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         # get loss in current iteration
         train_acc = running_acc/iter_inbatch
         train_loss = running_loss/iter_inbatch
+        train_reg = running_reg
         vali_loss, vali_acc , cm_plot , roc_plot = eval_model(ga, device, loss_criterion, testing_set, classes)
         
-        print("Epoch : {}, TRAIN LOSS : {}, TRAIN ACC : {} , VALI LOSS : {} , VALI ACC : {}".format(global_epochs,train_loss, train_acc, vali_loss, vali_acc))
+        print("Epoch : {}, TRAIN LOSS : {}, TRAIN REG : {} , TRAIN ACC : {} , VALI LOSS : {} , VALI ACC : {}".format(global_epochs,train_loss, train_reg, train_acc, vali_loss, vali_acc))
 
         # append in array 
         loss_train_logs = np.append(loss_train_logs, train_loss)
@@ -261,7 +264,7 @@ if __name__ == "__main__":
         print(name ,param.shape)
     exit()
     """
-    ga = GA(CrossEntropy,population_size=50,dimension=parameters_size,numOfBits=25)
+    ga = NSGA_II(CrossEntropy,population_size=12,dimension=parameters_size,numOfBits=25)
     print("Initializing poppulation")
     ga.initNN(model=model,device=device, data=train_loader)
     print("Finish initializing population")
