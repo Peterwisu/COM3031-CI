@@ -16,7 +16,7 @@ softmax = torch.nn.Softmax(dim=1)
 """
 Genetic algorithms
 """
-class GA():
+class GeneticAlgorithms():
     
     
     def __init__ (self, objective, population_size, dimension,

@@ -6,16 +6,12 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader  as DataLoader 
-import matplotlib.pyplot as plt
-import cv2
+from torch.utils.data import DataLoader  as DataLoader
 from tqdm import tqdm
-import torch.optim as optim
 from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
-import matplotlib.pyplot as plt 
 import numpy as np
-from pso import PSO
+from optimizer.pso import ParticleSwarm
 from torch.nn import DataParallel
 # import utility function 
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
@@ -27,7 +23,7 @@ softmax = nn.Softmax(dim=1)
 """
     Train Model
 """
-def train(pso, device, loss_criterion, training_set, validation_set,nepochs, classes):
+def train(pso, device, loss_criterion, training_set, validation_set,nepochs, classes, savename):
     
     global global_epochs
 
@@ -55,7 +51,7 @@ def train(pso, device, loss_criterion, training_set, validation_set,nepochs, cla
             images = images.to(device)
             labels = labels.to(device)
 
-            loss, acc = pso.optimize_NN(global_epochs,nepochs,images,labels)
+            loss, acc = pso.optimize(global_epochs,nepochs,images,labels)
             running_acc +=acc
             running_loss +=loss
             iter_inbatch +=1
@@ -265,7 +261,7 @@ if __name__ == "__main__":
 
     
     # Classifier Models
-    model = Classifier(size="medium").to(device)
+    model = Classifier(size="small").to(device)
 
     if device == "cuda" and torch.cuda.device_count() > 1 :
 
@@ -285,8 +281,8 @@ if __name__ == "__main__":
     parameters_size =sum(params.numel() for params in model.parameters() if params.requires_grad)
     
 
-    pso = PSO(CrossEntropy,100, parameters_size, pso_type='global', num_neighbours=5)
-    pso.initNN(model=model,device=device)
+    pso = ParticleSwarm(CrossEntropy,100, model=model, device=device, pso_type='global', num_neighbours=5)
+    
     print(np.array(pso.population).shape)
     print(pso.pso_type)
 

@@ -10,16 +10,12 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader  as DataLoader 
-import matplotlib.pyplot as plt
-import cv2
+from torch.utils.data import DataLoader  as DataLoader
 from tqdm import tqdm
-import torch.optim as optim
 from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
-import matplotlib.pyplot as plt 
 import numpy as np
-from pso import PSO
+from optimizer.pso import ParticleSwarm
 from torch.nn import DataParallel
 # import utility function 
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
@@ -57,7 +53,7 @@ def train(pso, device, loss_criterion, training_set, validation_set,nepochs, cla
         
         features , labels = cnn.extract_features(data=progress_bar, device=device)
         
-        loss, acc = pso.optimize_NN(global_epochs,nepochs,features,labels)
+        loss, acc = pso.optimize(global_epochs,nepochs,features,labels)
         running_acc +=acc
         running_loss +=loss
         iter_inbatch +=1
@@ -307,9 +303,10 @@ if __name__ == "__main__":
     print("Trainable parameters : {}".format(sum(params.numel() for params in model.parameters() if params.requires_grad)))
 
     parameters_size =sum(params.numel() for params in model.parameters() if params.requires_grad)
-
-    pso = PSO(CrossEntropy, 200, parameters_size, pso_type='global', num_neighbours=20)
-    pso.initNN(model=model,device=device)
+    print(type(CrossEntropy))
+    print(type(model))
+    pso = ParticleSwarm(CrossEntropy, 200, model=model, device= device, pso_type='global', num_neighbours=20)
+    
     print(np.array(pso.population).shape)
     print(pso.pso_type)
     

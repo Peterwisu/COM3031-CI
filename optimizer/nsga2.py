@@ -14,8 +14,9 @@ from utils import gaussian_regularizer
 
 # softmax activation function
 softmax = torch.nn.Softmax(dim=1)
+
 """
-Genetic algorithms
+Non Dominant Sorting Genetic Algorithms II
 """
 class NSGA_II():
     

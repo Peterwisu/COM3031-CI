@@ -15,27 +15,42 @@ import random
 import operator
 import numpy as np
 import math
-TYPE = ['global','local','social','competitive']
 
+
+TYPE = ['global','local','social','competitive']
 
 # softmax activation function
 softmax = torch.nn.Softmax(dim=1)
-class PSO():
+class ParticleSwarm():
 
     """
 
     Constructor for Particles Swarm Class
         
     """
-    def __init__ (self, objective, population_size: int, 
-                  particle_size: int, vmaxInit=2, vminInit=0.2,c1=2, c2=2, wmax=0.9,
-                  wmin=0.4, posMinInit=-.1, posMaxInit=+.1, pso_type='global',num_neighbours=None):
-
-        # nunmber of Swarm
+    def __init__ (self, 
+                  objective :object, 
+                  population_size: int, 
+                  model :object ,
+                  device : str,
+                  vmaxInit: float =2.0 ,
+                  vminInit : float=0.2,
+                  c1 : float =2,
+                  c2 : float =2,
+                  wmax : float =0.9,
+                  wmin : float =0.4,
+                  posMinInit : float =-.1,
+                  posMaxInit : float =+.1, 
+                  pso_type : str ='global',
+                  num_neighbours : int = None,
+                ):
         
-        self.population_size = population_size#100+int(particle_size/10)#population_size
+        # Neural Network model 
+        self.model = model  
+        # nunmber of Swarm 
+        self.population_size = population_size 
         # Dimension of decision variable
-        self.particle_size = particle_size
+        self.particle_size = sum(params.numel() for params in self.model.parameters() if params.requires_grad)
         # Max and Min initialize velocity 
         self.vmaxInit = vmaxInit
         self.vminInit = vminInit
@@ -50,17 +65,14 @@ class PSO():
         self.posMaxInit = posMaxInit
         # Objective Function 
         self.objective = objective 
-        # Swarm population
-        self.population= None
         # Global Best
         self.best = None 
-        # NN model
-        self.model =None
+         
         # device (CPU or GPU)
-        self.device =None
-        
+        self.device = device
+        # type of particle swarm
         self.pso_type = pso_type
-        
+        # number of neighbour for local pso
         self.num_neighbours = num_neighbours
         
         # probabilites for Social Learning Swarm
@@ -110,7 +122,7 @@ class PSO():
             r1 = random.uniform(0,1)
             r2 = random.uniform(0,1)
             r3 = random.uniform(0,1)
-            #print(idx)
+            
             demonstrator = random.choice(list(self.population[0:idx]))
             epsilon =self.particle_size/100.0 * 0.01
              
@@ -125,7 +137,7 @@ class PSO():
         """
         Objective funtion (Loss function) 
         """ 
-        def objective_nn(self, data, labels):
+        def objective_function(self, data, labels):
             
             with torch.no_grad():
                 # set model to training stage 
@@ -177,27 +189,12 @@ class PSO():
         self.toolbox.register("population", tools.initRepeat, list, self.toolbox.particle)
         self.toolbox.register("update", updateParticle)
         self.toolbox.register("update_sl",updateParticle_sl)
-        self.toolbox.register("evaluate", self.objective)
-        self.toolbox.register("evaluate_nn",objective_nn)
+        self.toolbox.register("evaluate",objective_function)
+        
+        # Swarm population
+        self.population = self.toolbox.population(n=self.population_size)
 
     
-    """
-    Initialize a Swarm population
-    """
-    def initSwarm(self):
-        self.population = self.toolbox.population(n=self.population_size)
-    
-    
-    """
-    Initializa Swarm population for optimizing Neural Network
-    """ 
-    def initNN(self, model, device):
-        
-        self.population = self.toolbox.population(n=self.population_size)
-        
-        self.model = model
-        
-        self.device = device
     
     
     """
@@ -230,9 +227,6 @@ class PSO():
                     params_count += layer.numel()
                 
     
-        
-        
-        
            
     """
     Calculate Euclidean distance  
@@ -272,38 +266,6 @@ class PSO():
         return center
 
              
-    """
-    not for nn
-    """ 
-    def optimize(self,iter_no,nepoch):
-        
-        #inertia
-        w = self.wmax - ((self.wmax-self.wmin) * iter_no/nepoch)
-        
-        for particle in self.population:
-            
-            particle.fitness.values = self.toolbox.evaluate(particle)
-            
-            if (not particle.best) or (particle.best.fitness < particle.fitness):
-                
-                particle.best = creator.particle(particle)
-                particle.best.fitness.values = particle.fitness.values
-                
-            if (not self.best) or self.best.fitness < particle.fitness:
-                
-                self.best = self.creator.particle(particle)
-                self.best.fitness.values = particle.fitness.values
-                
-        for particle in self.population:
-            
-            if self.pso_type == "global":
-                
-                self.toolbox.update(self, particle, self.best, w) 
-            
-            elif self.pso_type == "local":
-            
-                neighbour = self.neighbourbest(self.population,particle) 
-                self.toolbox.update(self,particle,neighbour,w)
     
     
     """
@@ -312,7 +274,7 @@ class PSO():
     
     
     """ 
-    def optimize_NN(self,iter_no,nepoch,data,gt):
+    def optimize(self,iter_no,nepoch,data,gt):
         
         #inertia
         w = self.wmax - ((self.wmax-self.wmin) * iter_no/nepoch)
@@ -321,7 +283,7 @@ class PSO():
             self.weight_assign(particle)
             
             # Calculate a fitness
-            particle.fitness.values, particle.acc = self.toolbox.evaluate_nn(self, data, gt)
+            particle.fitness.values, particle.acc = self.toolbox.evaluate(self, data, gt)
             
             if (not particle.best) or (particle.best.fitness < particle.fitness):
                 
@@ -383,22 +345,6 @@ class PSO():
         
         return loss, acc
             
-
-""" Test code"""
-# pso = PSO(objective=benchmarks.sphere, population_size=50, particle_size=20)
-
-# pso.initSwarm()
-# epoch =400
-# for i in range(epoch):
-    
-#     pso.fitness(i,epoch)
-#     if i%40 == 0 :
-#         print(pso.toolbox.evaluate(pso.best))
-    
-# print(np.array(pso.best))
-# a =pso.toolbox.evaluate(pso.best)
-# print("Minmum found",a)
-    
 
 
 

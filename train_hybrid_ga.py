@@ -10,31 +10,17 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader  as DataLoader 
-import matplotlib.pyplot as plt
-import cv2
+from torch.utils.data import DataLoader  as DataLoader
 from tqdm import tqdm
-import torch.optim as optim
 from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
-import matplotlib.pyplot as plt 
 import numpy as np
-from ga import GA
+from optimizer.ga import GA
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
+from utils import Fitness_Dataset
 from extractor import Extractor
 
 
-class Fitness_Dataset(torch.utils.data.dataset.Dataset):
-    def __init__(self, _dataset):
-        self.dataset = _dataset
-
-    def __getitem__(self, index):
-        example, target = self.dataset[index]
-        return np.array(example), target
-
-    def __len__(self):
-        return len(self.dataset)
-    
 # softmax activation function
 softmax = nn.Softmax(dim=1)
 

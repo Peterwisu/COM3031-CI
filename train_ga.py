@@ -10,16 +10,12 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader  as DataLoader 
-import matplotlib.pyplot as plt
-import cv2
+from torch.utils.data import DataLoader  as DataLoader
 from tqdm import tqdm
-import torch.optim as optim
 from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
-import matplotlib.pyplot as plt 
 import numpy as np
-from ga import GA
+from optimizer.ga import GeneticAlgorithms
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot 
 
 
@@ -256,7 +252,7 @@ if __name__ == "__main__":
     parameters_size =sum(params.numel() for params in model.parameters())
     
 
-    ga = GA(CrossEntropy,population_size=50,dimension=parameters_size,numOfBits=25)
+    ga = GeneticAlgorithms(CrossEntropy,population_size=50,dimension=parameters_size,numOfBits=25)
     print("Initializing poppulation")
     ga.initNN(model=model,device=device, data=train_loader)
     print("Finish initializing population")

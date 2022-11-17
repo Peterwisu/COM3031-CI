@@ -37,7 +37,7 @@ pip install -r requirement.txt
 ## Run
 
 ```bash
-python train.py #train classifier
+python train_gd.py #train classifier
 ```
 
 ## Visualization

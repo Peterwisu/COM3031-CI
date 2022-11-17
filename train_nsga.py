@@ -10,30 +10,16 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader  as DataLoader 
-import matplotlib.pyplot as plt
-import cv2
+from torch.utils.data import DataLoader  as DataLoader
 from tqdm import tqdm
-import torch.optim as optim
 from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
-import matplotlib.pyplot as plt 
 import numpy as np
-from nsga2 import NSGA_II
+from optimizer.nsga2 import NSGA_II
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot, plot_pareto_front, save_pareto_front
 from extractor import Extractor
+from utils import Fitness_Dataset
 
-
-class Fitness_Dataset(torch.utils.data.dataset.Dataset):
-    def __init__(self, _dataset):
-        self.dataset = _dataset
-
-    def __getitem__(self, index):
-        example, target = self.dataset[index]
-        return np.array(example), target
-
-    def __len__(self):
-        return len(self.dataset)
 
 # softmax activation function
 softmax = nn.Softmax(dim=1)
@@ -287,8 +273,8 @@ if __name__ == "__main__":
     cnn = Extractor('large', './ckpt/gd.pth')
     ga = NSGA_II(CrossEntropy,population_size=20,dimension=parameters_size,numOfBits=50, crossPoint=20)
     
+    # put an extracted features in batach form
     features , labels = cnn.extract_features(train_loader, device=device)
-    
     data = zip(features.cpu(), labels.detach().cpu())
     fitness_data = [(x,y) for x,y in data] 
     fitness_loader = DataLoader(Fitness_Dataset(fitness_data), batch_size=40000, shuffle=False , num_workers=2, drop_last=False)
