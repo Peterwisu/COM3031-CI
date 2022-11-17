@@ -30,7 +30,7 @@ import pandas as pd
 import os
 
 # import utility function 
-from utils import save_logs , plot_diff ,cm_plot ,roc_plot
+from utils import save_logs , plot_diff ,cm_plot ,roc_plot , save_model
 
 
 # softmax activation function
@@ -69,7 +69,7 @@ returns
 
     None
 """
-def train(model, device, loss_criterion, optimizer, training_set, validation_set,nepochs, classes):
+def train(model, device, loss_criterion, optimizer, training_set, validation_set,nepochs, classes, savename):
     
     global global_epochs
 
@@ -152,7 +152,7 @@ def train(model, device, loss_criterion, optimizer, training_set, validation_set
 
 
         # save alls logs to csv files
-        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name='gd_logs.csv')
+        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name="{}.csv".format(savename))
         
 
         # increment epoch
@@ -388,7 +388,7 @@ if __name__ == "__main__":
     
     # Classifier Models
     model = Classifier(size='large').to(device)
-
+    
     # Loss function Objective function 
     CrossEntropy = nn.CrossEntropyLoss()
 
@@ -399,9 +399,11 @@ if __name__ == "__main__":
     print("Trainable parameters : {}".format(sum(params.numel() for params in model.parameters() if params.requires_grad)))
 
 
-    train(model, device, CrossEntropy, optimizer, train_loader, validation_loader, nepochs, classes) 
+    train(model, device, CrossEntropy, optimizer, train_loader, validation_loader, nepochs, classes, savename) 
 
     test(model, device, CrossEntropy, test_loader, classes)
+
+    save_model(model,"{}.pth".format(savename)) 
     
     # close tensorboard writer
     writer.close()

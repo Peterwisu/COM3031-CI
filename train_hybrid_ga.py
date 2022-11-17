@@ -19,8 +19,8 @@ from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt 
 import numpy as np
-from nsga2 import NSGA_II
-from utils import save_logs , plot_diff ,cm_plot ,roc_plot, plot_pareto_front, save_pareto_front
+from ga import GA
+from utils import save_logs , plot_diff ,cm_plot ,roc_plot
 from extractor import Extractor
 
 
@@ -34,16 +34,18 @@ class Fitness_Dataset(torch.utils.data.dataset.Dataset):
 
     def __len__(self):
         return len(self.dataset)
-
+    
 # softmax activation function
 softmax = nn.Softmax(dim=1)
+
+    
 
 """
 
     Train Model
 
 """
-def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes, cnn , savename):
+def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes, cnn, savename):
     
     
     
@@ -63,23 +65,18 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         progress_bar = tqdm((training_set))
         running_acc = 0 
         running_loss = 0  # Total loss in epochs
-        running_reg = 0
         iter_inbatch = 0  # Iteration in batch
         
         
 
-        # for  (images, labels) in progress_bar:
+        features , labels = cnn.extract_features(data=progress_bar, device=device)
             
-        #     # move dataset to same device as model
-        #     images = images.to(device)
-        #     labels = labels.to(device)
+            
 
-        features , labels  = cnn.extract_features(data=progress_bar, device=device)
-        loss, reg,  acc = ga.optimize_NN(features,labels)
+        loss,  acc = ga.optimize_NN(features,labels)
             
 
         running_loss +=loss
-        running_reg +=reg
         running_acc +=acc
         iter_inbatch +=1
             
@@ -89,17 +86,9 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         # get loss in current iteration
         train_acc = running_acc/iter_inbatch
         train_loss = running_loss/iter_inbatch
-        train_reg = running_reg
-        
-        
-        all_front , first_front = ga.get_pareto_front()
-    
-        pareto_plot = plot_pareto_front(all_fronts=all_front,
-                                        first_front=first_front)
-        
         vali_loss, vali_acc , cm_plot , roc_plot = eval_model(ga, device, loss_criterion, testing_set, classes, cnn)
         
-        print("Epoch : {}, TRAIN LOSS : {}, TRAIN REG : {} , TRAIN ACC : {} , VALI LOSS : {} , VALI ACC : {}".format(global_epochs,train_loss, train_reg, train_acc, vali_loss, vali_acc))
+        print("Epoch : {}, TRAIN LOSS : {}, TRAIN ACC : {} , VALI LOSS : {} , VALI ACC : {}".format(global_epochs,train_loss, train_acc, vali_loss, vali_acc))
 
         # append in array 
         loss_train_logs = np.append(loss_train_logs, train_loss)
@@ -109,8 +98,8 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         acc_vali_logs = np.append(acc_vali_logs, vali_acc)
         
         # Plot Figure
-        loss_figure = plot_diff(loss_train_logs, loss_vali_logs," NSGA Loss")
-        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'NSGA Accuracy') # accuracy different
+        loss_figure = plot_diff(loss_train_logs, loss_vali_logs," GA Loss")
+        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'GA Accuracy') # accuracy different
 
 
         # Add logs to tensorboard
@@ -122,8 +111,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         writer.add_figure("Plot/loss",loss_figure,global_epochs)  
         writer.add_figure("Plot/acc",acc_figure,global_epochs) 
         writer.add_figure("Plot/cm",cm_plot,global_epochs) 
-        writer.add_figure("Plot/roc",roc_plot,global_epochs)    
-        writer.add_figure("Plot/pareto_front", pareto_plot, global_epochs)   
+        writer.add_figure("Plot/roc",roc_plot,global_epochs)       
         
         # save alls logs to csv files
         save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name='{}.csv'.format(savename))    
@@ -138,7 +126,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
 
 """
 
-def eval_model(ga, device, loss_criterion, testing_set,classes,cnn):
+def eval_model(ga, device, loss_criterion, testing_set,classes, cnn):
     
     eval_progress_bar = tqdm(testing_set)
     eval_running_loss = 0 
@@ -150,14 +138,10 @@ def eval_model(ga, device, loss_criterion, testing_set,classes,cnn):
     eval_pred_probas = []
     eval_gt_labels = np.array([])
     with torch.no_grad():
-        # for _ , (images, labels) in eval_progress_bar:
-
-        #     images = images.to(device)
-        #     labels = labels.to(device)
-        #     #  Set model to evaluation stage
         
-        features, labels = cnn.extract_features(data=eval_progress_bar, device =device)
             
+        features , labels = cnn.extract_features(data=eval_progress_bar, device=device)
+        #  Set model to evaluation stage
         emodel = ga.model
         emodel.eval()
             
@@ -167,7 +151,6 @@ def eval_model(ga, device, loss_criterion, testing_set,classes,cnn):
         eval_loss, eval_acc, pred_label, gt_label, pred_proba = objective(predicted,labels,loss_criterion)
         
         eval_pred_labels = np.append(eval_pred_labels , pred_label)
-
         eval_pred_probas.append(pred_proba)
 
         eval_gt_labels = np.append(eval_gt_labels, gt_label)
@@ -221,12 +204,23 @@ def objective(predicted, labels, loss_criterion):
     # return (loss, accuracy,  predicted labels, ground truth labels, predicted probabilites)
     return  loss, accuracy, pred_labels, gt_labels, proba
 
+def test(ga, device, loss_criterion, testing_set, classes, cnn):
+
+    print("Testing Stage")
+
+    test_loss, test_acc, test_cm_plot, test_roc_plot = eval_model(ga, device, loss_criterion, testing_set, classes,cnn)
+
+    print("**Testing stage** LOSS : {} , Accuracy : {} ".format(test_loss, test_acc))
+
+    writer.add_figure("Plot/test_cm",test_cm_plot,1)
+    writer.add_figure("Plot/test_roc", test_roc_plot,1)
+
 
 
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_NSGA"
+    savename ="CIFAR-10_GA"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -235,7 +229,7 @@ if __name__ == "__main__":
 
     batch_size = 5000
     
-    nepochs = 2
+    nepochs = 100
 
     print("Using  **{}** as a device ".format(device))
     #print("Batch Size : {}".format(batch_size))
@@ -250,15 +244,13 @@ if __name__ == "__main__":
 
     testing_set  = torchvision.datasets.CIFAR10(root='./../data', train=False, download=True, transform=transform)
     
-    training_data , validation_data = torch.utils.data.random_split(training_set, [40000,10000])
-    
-    
+    training_data, validation_data = torch.utils.data.random_split(training_set, [40000, 10000])
 
-    train_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True, num_workers=2)
+    train_loader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=True)
     
-    validation_loader  = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=True)
-    
-    test_loader = DataLoader(testing_set, batch_size=batch_size, shuffle=False, num_workers=2)
+    validation_loader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=True)
+
+    test_loader = DataLoader(testing_set, batch_size=len(testing_set), shuffle=False, num_workers=2)
 
     print("Training Dataset: {}".format(len(training_set)))
     print("Testing Dataset: {}".format(len(testing_set)))
@@ -281,31 +273,34 @@ if __name__ == "__main__":
     print("Trainable parameters : {}".format(sum(params.numel() for params in model.parameters() if params.requires_grad)))
 
     parameters_size =sum(params.numel() for params in model.parameters())
+  
     
-    # Pretrain featuresd extractor (CNN)
-    
-    cnn = Extractor('large', './ckpt/gd.pth')
-    ga = NSGA_II(CrossEntropy,population_size=20,dimension=parameters_size,numOfBits=50, crossPoint=20)
-    
-    features , labels = cnn.extract_features(train_loader, device=device)
-    
-    data = zip(features.cpu(), labels.detach().cpu())
-    fitness_data = [(x,y) for x,y in data] 
-    fitness_loader = DataLoader(Fitness_Dataset(fitness_data), batch_size=40000, shuffle=False , num_workers=2, drop_last=False)
-    
-    
+    # Pretrain features extrator (CNN)
+    cnn = Extractor('large','./ckpt/gd.pth')
+
+    ga = GA(CrossEntropy,
+            population_size=100,
+            dimension=parameters_size,
+            numOfBits=50,
+            crossPoint=5,
+            lower_bound=-1,
+            upper_bound=1)
     print("Initializing poppulation")
+    
+    features, labels = cnn.extract_features(train_loader,device=device)
+  
+    data = zip(features.cpu(), labels.detach().cpu())
+    
+    fitness_data=[ (x,y) for x,y  in data]
+    fitness_loader  = DataLoader(Fitness_Dataset(fitness_data), batch_size=40000,shuffle=False, num_workers=2, drop_last=False)
+    
+    
     ga.initNN(model=model,device=device, data=fitness_loader)
     print("Finish initializing population")
 
-
-    #print(np.array(pso.population).shape)
     
-
-    train(ga, device, CrossEntropy, train_loader, test_loader, nepochs, classes,cnn, savename) 
-    all_fronts , first_front=  ga.get_pareto_front() 
-    save_pareto_front(all_fronts, first_front, save_name="{}.csv".format(savename))
-  
+    train(ga, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename=savename) 
+    test(ga, device, CrossEntropy, test_loader, classes, cnn)
 
     writer.close()
 

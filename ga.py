@@ -60,7 +60,7 @@ class GA():
             
             return numinrange
         
-        
+        # not for NN 
         """
         Seperate  the number of decision varible   
         """ 
@@ -383,8 +383,8 @@ class GA():
             ind.fitness.values = fit
             ind.acc =acc
         
-        # replace a population with  offspring
-        self.population[:] = offspring
+        # Survival Selection
+        self.population[:] = tools.selBest(self.population + offspring, self.population_size)
          
         
         # select the best individual

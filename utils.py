@@ -278,4 +278,151 @@ def save_logs(train_loss,eval_loss,train_acc,eval_acc, save_name):
 
     # save file 
     df.to_csv(savepath, index=False)
+
+"""
+**********
+save_model : Save a checkpoint of a model (its weights) 
+**********
+
+******
+inputs
+******
+
+
+    model : 
+
+    save_name : 
+
+*******
+returns
+*******
+
+    None
+
+"""
+def save_model(model, save_name):
+
+    # save path 
+    path =  "./ckpt/"
+
+    # check if path exist if not create it 
+    if not os.path.exists(path):
+
+        os.mkdir(path)
+    
+    savepath =  os.path.join(path, save_name)
+
+    # save checkpoint
+    torch.save(model.state_dict(), savepath)
+
+    print("Save Model Checkpoint at {}".format(savepath))
+    
+"""
+*********
+Plot difference between training and evaluation
+*********
+
+******
+inputs
+******
+    
+    fronts : list of all optimal fronts
+
+*******
+returns
+*******
+
+
+    figure : Plot Pareto front figure
+
+
+"""
+def plot_pareto_front(all_fronts, first_front):
+    
+ 
+
+    fig , (ax) = plt.subplots(ncols=1, nrows=1)
+    
+    ax.scatter(all_fronts[:,0], all_fronts[:,1], c='b', marker='x')
+    ax.scatter(first_front[:,0], first_front[:,1], s=150, facecolor='none', edgecolors='g', linewidths=2)
+    ax.plot(first_front[:,0], first_front[:,1], c='r', linestyle='dashdot')
+    ax.set_title("NSGA II Pareto front")
+    ax.set_xlabel('Loss')
+    ax.set_ylabel("Sum of square weights of a model")
+    ax.grid()
+    #plt.axis("tight")
+    figure = ax.get_figure()
+    plt.close(fig)
+    
+    return figure
+
+"""
+*********
+save_logs : Saving a logs into csv file
+*********
+
+******
+inputs
+******
+    
+
+    train_loss :  array of training logs
+    
+    eval_loss :  array  of evaluation logs
+
+    train_acc : array of training accuracy
+
+    eval_acc : array of evaluation accuracy 
+
+
+*******
+returns
+*******
+
+
+    None 
+
+"""
+def save_pareto_front(all_fronts,first_front, save_name):
+
+    # save path
+    path = "./logs/pareto_front/"
+
+    # check if path exist if not create it
+    if not os.path.exists(path):
+
+        os.mkdir(path)
+    
+    # create empty dataframe 
+    df1 = pd.DataFrame(all_fronts,columns=['loss','weight'])
+    
+    df2 = pd.DataFrame(first_front, columns=['loss','weight'])
+    
+    
+    
+    
+    
+    #  assign file name to a path
+    #savepath = os.path.join(path,'gd_logs.csv') 
+
+    savepath1 = os.path.join(path,'all-front {}'.format(save_name))
+    savepath2 = os.path.join(path,'first-front{}'.format(save_name))
+
+    # save file 
+    df1.to_csv(savepath1, index=False)
+    df2.to_csv(savepath2, index=False)
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
     

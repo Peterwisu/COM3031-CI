@@ -20,18 +20,20 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt 
 import numpy as np
 from ga import GA
-from utils import save_logs , plot_diff ,cm_plot ,roc_plot
+from utils import save_logs , plot_diff ,cm_plot ,roc_plot 
 
 
 # softmax activation function
 softmax = nn.Softmax(dim=1)
+
+    
 
 """
 
     Train Model
 
 """
-def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes):
+def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes, savename):
     
     
     
@@ -60,6 +62,9 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
             # move dataset to same device as model
             images = images.to(device)
             labels = labels.to(device)
+            
+            
+            
 
             loss,  acc = ga.optimize_NN(images,labels)
             
@@ -102,7 +107,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         writer.add_figure("Plot/roc",roc_plot,global_epochs)       
         
         # save alls logs to csv files
-        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name='ga_logs.csv')    
+        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name='{}.csv'.format(savename))    
         
         
         # increment epoch
@@ -240,7 +245,7 @@ if __name__ == "__main__":
     
     # Classifier Models
 
-    model = Classifier(size="small").to(device)
+    model = Classifier(size="medium").to(device)
 
     # Loss function Objective function 
     CrossEntropy = nn.CrossEntropyLoss()
@@ -250,17 +255,7 @@ if __name__ == "__main__":
 
     parameters_size =sum(params.numel() for params in model.parameters())
     
-    """    
-   
-    for i in model.parameters():
 
-        print(len(i))
-
-    for name, param in model.named_parameters():
-
-        print(name ,param.shape)
-    exit()
-    """
     ga = GA(CrossEntropy,population_size=50,dimension=parameters_size,numOfBits=25)
     print("Initializing poppulation")
     ga.initNN(model=model,device=device, data=train_loader)
@@ -270,7 +265,9 @@ if __name__ == "__main__":
     #print(np.array(pso.population).shape)
     
 
-    train(ga, device, CrossEntropy, train_loader, test_loader, nepochs, classes) 
+    train(ga, device, CrossEntropy, train_loader, test_loader, nepochs, classes, savename) 
+    
+   
 
     writer.close()
 

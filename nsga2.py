@@ -40,49 +40,7 @@ class NSGA_II():
         self.device =None
         self.objective = objective
 
-        
-        """
-        Convert chromosome to real number
-        """ 
-        def chrom2real(c):
-        
-            indasstring = ''.join(map(str,c))
-            degray = gray_to_bin(indasstring)
-            numasint = int(degray, 2)
-            numinrange= self.lower_bound + ( (self.upper_bound-self.lower_bound)*(numasint/(self.maxnum-1)))
-            
-            return numinrange
-        
-        
-        """
-        Seperate  the number of decision varible   
-        """ 
-        def separatevariables(v):
-            
-            # list of decision variable 
-            variable = []
-            #  number of bit use to represent decision vairable
-            num_bits = self.numOfBits
-            
-            # counter for a position of a bits 
-            bit_counter = 0 
-            
-            # iterate through all dimension of decision variable
-            for i in range(dimension):
-               
-                # convert a binary into real number and append it in a list of  decision variable  
-                # the lenght binary use for converting to decision variable is number of bits use for represeting
-                # decsion variable 
-                variable.append(chrom2real(v[bit_counter:num_bits*(1+i)]))
-                
-                # increment position of a bit counter
-                bit_counter+=num_bits
-                
-            return variable
-        
-        
-
-       
+          
 
         """
         Objective funtion or Loss funciton
@@ -260,7 +218,7 @@ class NSGA_II():
     def optimize_NN(self, images, labels):
         
         # select an offspring for reproduction 
-        print(len(self.population))
+        #print(len(self.population))
         offspring = tools.selTournamentDCD(self.population,len(self.population))
         # clone offspring
         offspring = list(map(self.toolbox.clone, offspring))
@@ -322,10 +280,15 @@ class NSGA_II():
          
         
         # select the best individual
-        best_individual= tools.selBest(self.population,1)[0]
+        
+        #best_individual= tools.selBest(self.population,1)[0]
+        best_individual = self.toolbox.select(self.population,1)[0]
+        
+        
+        
         best_acc = best_individual.acc
-        for i in self.population:
-            print(i.fitness.values)
+        # for i in self.population:
+        #     print(i.fitness.values)
         best_weight = self.separatevariables(best_individual)
         self.weight_assign(best_weight)
         loss = best_individual.fitness.values[0]
@@ -333,4 +296,33 @@ class NSGA_II():
         
         
         return loss, reg , best_acc
+    
+    """
+    Get pareto front
+    """
+    def get_pareto_front(self):
+        
+        # Clone a all individual from a current popoulation 
+        popclone = list(map(self.toolbox.clone, self.population))
+        
+        # get a first non dominate individuals in all an optimal solutions
+        first_front = tools.sortNondominated(individuals=popclone,k=len(popclone), first_front_only=True)[0]
+        
+        # sort each individual by its ftiness values 
+        first_front.sort(key= lambda x: x.fitness.values)
+        popclone.sort(key = lambda x: x.fitness.values)
+        
+        # get both fitness values of each individual in an array 
+        
+        # Non dominated individual
+        all_fronts = np.array([ind.fitness.values for ind in popclone]) 
+        # all individual
+        first_front = np.array([ ind.fitness.values for ind in first_front])
+     
+         
+        return all_fronts , first_front
+    
+    
+        
+        
     

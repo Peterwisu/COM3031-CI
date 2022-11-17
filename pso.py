@@ -28,8 +28,8 @@ class PSO():
         
     """
     def __init__ (self, objective, population_size: int, 
-                  particle_size: int, vmaxInit=1.5, vminInit=0.2,c1=2, c2=2, wmax=0.6,
-                  wmin=0.4, posMinInit=-.2, posMaxInit=+.2, pso_type='global',num_neighbours=None):
+                  particle_size: int, vmaxInit=2, vminInit=0.2,c1=2, c2=2, wmax=0.9,
+                  wmin=0.4, posMinInit=-.1, posMaxInit=+.1, pso_type='global',num_neighbours=None):
 
         # nunmber of Swarm
         
@@ -273,7 +273,7 @@ class PSO():
 
              
     """
-    Not for NN
+    not for nn
     """ 
     def optimize(self,iter_no,nepoch):
         
@@ -286,12 +286,12 @@ class PSO():
             
             if (not particle.best) or (particle.best.fitness < particle.fitness):
                 
-                particle.best = creator.Particle(particle)
+                particle.best = creator.particle(particle)
                 particle.best.fitness.values = particle.fitness.values
                 
             if (not self.best) or self.best.fitness < particle.fitness:
                 
-                self.best = self.creator.Particle(particle)
+                self.best = self.creator.particle(particle)
                 self.best.fitness.values = particle.fitness.values
                 
         for particle in self.population:
@@ -302,7 +302,7 @@ class PSO():
             
             elif self.pso_type == "local":
             
-                neighbour = self.neighbourBest(self.population,particle) 
+                neighbour = self.neighbourbest(self.population,particle) 
                 self.toolbox.update(self,particle,neighbour,w)
     
     
