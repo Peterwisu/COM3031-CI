@@ -1,5 +1,6 @@
 
 import random
+import array
 import numpy as np
 from sympy.combinatorics.graycode import GrayCode
 from sympy.combinatorics.graycode import gray_to_bin
@@ -15,15 +16,31 @@ from utils import gaussian_regularizer
 # softmax activation function
 softmax = torch.nn.Softmax(dim=1)
 
+ENCODING = ['binary','real']
+
 """
 Non Dominant Sorting Genetic Algorithms II
 """
 class NSGA_II():
     
     
-    def __init__ (self, objective, population_size, dimension,
-                  numOfBits = 10, nElitists=1, crossPoint=3, crossProb=0.6,
-                  flipProb =1, mutateProb=0.1, lower_bound = -1, upper_bound = 1):
+    def __init__ (self,
+                  objective,
+                  population_size,
+                  dimension,
+                  numOfBits = 10,
+                  nElitists=1,
+                  crossPoint=3,
+                  crossProb=0.6,
+                  flipProb =1,
+                  mutateProb=0.1,
+                  lower_bound = -1,
+                  upper_bound = 1,
+                  encoding='binary'):
+        
+        if encoding not in ENCODING:
+            
+            raise ValueError("The type pf encoding should be in this list {}".format(ENCODING))
     
         self.population_size = population_size 
         self.dimension = dimension  
@@ -40,6 +57,17 @@ class NSGA_II():
         self.model = None
         self.device =None
         self.objective = objective
+        self.encoding = encoding
+        
+        
+        def uniform(low,up,size=None):
+            
+            try: 
+                return [random.uniform(a,b) for a, b in zip(low,up)]
+            
+            except TypeError:
+                
+                return [random.uniform(a,b) for a, b in zip([low] * size, [up] * size)]
 
           
 
@@ -86,17 +114,33 @@ class NSGA_II():
         # Deap Creator
         self.creator = creator
         self.creator.create("FitnessMin", base.Fitness, weights=(-1.0,-1.0))
-        self.creator.create("Individual", list, fitness=creator.FitnessMin, acc=list)
+       
+        if self.encoding == "binary" :
+            
+            self.creator.create("Individual", list, fitness=creator.FitnessMin, acc=list)
+            
+        else:
+            
+            self.creator.create("Individual",array.array, typecode='d', fitness=creator.FitnessMin)
         
         # Deap Toolbox
         self.toolbox = base.Toolbox()
-        self.toolbox.register("attr_bool", random.randint, 0, 1)
-        self.toolbox.register("individual", tools.initRepeat, self.creator.Individual, self.toolbox.attr_bool, self.numOfBits*self.dimension)
-        self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
-        self.toolbox.register("mate", tools.cxTwoPoint)
-        self.toolbox.register("mutate",tools.mutFlipBit, indpb= self.flipProb)
-        self.toolbox.register("select",tools.selNSGA2)
+        if self.encoding == "binary":
+            self.toolbox.register("attr_bool", random.randint, 0, 1)
+            self.toolbox.register("individual", tools.initRepeat, self.creator.Individual, self.toolbox.attr_bool, self.numOfBits*self.dimension)
+            self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
+            self.toolbox.register("mate", tools.cxTwoPoint)
+            self.toolbox.register("mutate",tools.mutFlipBit, indpb= self.flipProb)
         
+        else:
+            
+            self.toolbox.register("attr_float", uniform, self.lower_bound, self.upper_bound , self.dimension)
+            self.toolbox.register('individual', tools.initIterate, self.creator.Individual, self.toolbox.attr_float)
+            self.toolbox.register('population', tools.initRepeat, list, self.toolbox.individual)
+            self.toolbox.register('mate', tools.cxSimulatedBinaryBounded, low=self.lower_bound, up=self.upper_bound, eta=20.0)
+            self.toolbox.register('mutate', tools.mutPolynomialBounded, low=self.lower_bound, up=self.upper_bound, eta=20.0, indpb=1/self.dimension)
+        
+        self.toolbox.register("select",tools.selNSGA2)
         self.toolbox.register("evaluate_nn",objective_nn)
         
         
@@ -104,7 +148,7 @@ class NSGA_II():
     """
     Initialize  a  population of genetic algorithms using for optimzing a weight for neural network
     """     
-    def initNN(self, model, device, data):
+    def initPop(self, model, device, data):
         
         #  number of population
         self.population = self.toolbox.population(n=self.population_size)
@@ -121,8 +165,15 @@ class NSGA_II():
         # iterate to each individual in a population
         for individual in tqdm(self.population):
            
-            # convert a binary representation of a value from individual to a  value represent weight 
-            weight = self.separatevariables(individual)
+            
+            if self.encoding == "binary" :
+            
+                # convert a binary representation of a value from individual to a  value represent weight 
+                weight = self.separatevariables(individual)
+            
+            else:
+                
+                weight = individual
             
             #  assign weight to a model 
             self.weight_assign(weight)
@@ -216,7 +267,7 @@ class NSGA_II():
     """
     Optimizing a neural network
     """
-    def optimize_NN(self, images, labels):
+    def search(self, images, labels):
         
         # select an offspring for reproduction 
         #print(len(self.population))
@@ -261,7 +312,13 @@ class NSGA_II():
         # Calculate a fitness for a new offspring
         for individual in (invalid_ind):
             
-            weight = self.separatevariables(individual)
+            if self.encoding == "binary" :
+                
+                weight = self.separatevariables(individual)
+            
+            else:
+                
+                weight = individual
             
             self.weight_assign(weight)
             
@@ -290,7 +347,15 @@ class NSGA_II():
         best_acc = best_individual.acc
         # for i in self.population:
         #     print(i.fitness.values)
-        best_weight = self.separatevariables(best_individual)
+        
+        if self.encoding == "binary":
+            
+            best_weight = self.separatevariables(best_individual)
+            
+        else:
+            
+            best_weight = best_individual
+            
         self.weight_assign(best_weight)
         loss = best_individual.fitness.values[0]
         reg = best_individual.fitness.values[1]

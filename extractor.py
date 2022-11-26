@@ -1,15 +1,12 @@
 import torch
 import torch.nn as nn
 from model import Classifier
-import numpy
-
 
 class Extractor():
-    
-    
-    def __init__(self, name=None, path = None):
+
+    def __init__(self, name= None, path = None):
         
-        self.name =name
+        self.name = name
         
         self.path = path
         
@@ -42,8 +39,7 @@ class Extractor():
     
     
     def  extract_features(self,data, device):
-        
-        
+
         all_features = []
         all_labels = []
         for (x , y) in data:
@@ -84,4 +80,3 @@ class Extractor():
     
     
             
-        

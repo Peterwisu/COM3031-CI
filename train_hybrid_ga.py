@@ -15,7 +15,7 @@ from tqdm import tqdm
 from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-from optimizer.ga import GA
+from optimizer.ga import GeneticAlgorithms
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
 from utils import Fitness_Dataset
 from extractor import Extractor
@@ -59,7 +59,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
             
             
 
-        loss,  acc = ga.optimize_NN(features,labels)
+        loss,  acc = ga.search(features,labels)
             
 
         running_loss +=loss
@@ -264,13 +264,14 @@ if __name__ == "__main__":
     # Pretrain features extrator (CNN)
     cnn = Extractor('large','./ckpt/gd.pth')
 
-    ga = GA(CrossEntropy,
+    ga = GeneticAlgorithms(CrossEntropy,
             population_size=100,
             dimension=parameters_size,
             numOfBits=50,
             crossPoint=5,
             lower_bound=-1,
-            upper_bound=1)
+            upper_bound=1,
+            encoding='real')
     print("Initializing poppulation")
     
     features, labels = cnn.extract_features(train_loader,device=device)
@@ -281,7 +282,7 @@ if __name__ == "__main__":
     fitness_loader  = DataLoader(Fitness_Dataset(fitness_data), batch_size=40000,shuffle=False, num_workers=2, drop_last=False)
     
     
-    ga.initNN(model=model,device=device, data=fitness_loader)
+    ga.initPop(model=model,device=device, data=fitness_loader)
     print("Finish initializing population")
 
     

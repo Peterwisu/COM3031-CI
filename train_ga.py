@@ -62,7 +62,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
             
             
 
-            loss,  acc = ga.optimize_NN(images,labels)
+            loss,  acc = ga.search(images,labels)
             
 
             running_loss +=loss
@@ -254,7 +254,7 @@ if __name__ == "__main__":
 
     ga = GeneticAlgorithms(CrossEntropy,population_size=50,dimension=parameters_size,numOfBits=25)
     print("Initializing poppulation")
-    ga.initNN(model=model,device=device, data=train_loader)
+    ga.initPop(model=model,device=device, data=train_loader)
     print("Finish initializing population")
 
 

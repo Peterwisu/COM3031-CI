@@ -61,7 +61,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         #     labels = labels.to(device)
 
         features , labels  = cnn.extract_features(data=progress_bar, device=device)
-        loss, reg,  acc = ga.optimize_NN(features,labels)
+        loss, reg,  acc = ga.search(features,labels)
             
 
         running_loss +=loss
@@ -221,7 +221,7 @@ if __name__ == "__main__":
 
     batch_size = 5000
     
-    nepochs = 2
+    nepochs = 100
 
     print("Using  **{}** as a device ".format(device))
     #print("Batch Size : {}".format(batch_size))
@@ -271,7 +271,7 @@ if __name__ == "__main__":
     # Pretrain featuresd extractor (CNN)
     
     cnn = Extractor('large', './ckpt/gd.pth')
-    ga = NSGA_II(CrossEntropy,population_size=20,dimension=parameters_size,numOfBits=50, crossPoint=20)
+    ga = NSGA_II(CrossEntropy,population_size=100,dimension=parameters_size,numOfBits=50, crossPoint=20, encoding='real')
     
     # put an extracted features in batach form
     features , labels = cnn.extract_features(train_loader, device=device)
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     
     
     print("Initializing poppulation")
-    ga.initNN(model=model,device=device, data=fitness_loader)
+    ga.initPop(model=model,device=device, data=fitness_loader)
     print("Finish initializing population")
 
 
