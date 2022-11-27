@@ -15,94 +15,98 @@ from tqdm import tqdm
 from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-from optimizer.ga import GeneticAlgorithms
+from torch import optim
+from torch.nn import DataParallel
+# import utility function 
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
-from utils import Fitness_Dataset
 from extractor import Extractor
 
 
 # softmax activation function
 softmax = nn.Softmax(dim=1)
 
-    
-
 """
 
     Train Model
 
 """
-def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes, cnn, savename):
+def train(model, pso, device, loss_criterion, training_set, validation_set,nepochs, classes, cnn , savename):
     
-    
-    
-     
     global global_epochs
 
     global_epochs = 1
     
-    # array of logs
+     # array of logs
     loss_train_logs = np.array([])
     loss_vali_logs  = np.array([])
     acc_train_logs = np.array([])
     acc_vali_logs = np.array([])
-    print('Start training')
+
+   
+
     while global_epochs < nepochs+1:
 
         progress_bar = tqdm((training_set))
-        running_acc = 0 
+        running_acc = 0
         running_loss = 0  # Total loss in epochs
         iter_inbatch = 0  # Iteration in batch
         
+        with torch.no_grad():
+            features , labels = cnn.extract_features(data=progress_bar, device=device)
         
-
-        features , labels = cnn.extract_features(data=progress_bar, device=device)
-            
-            
-
-        loss,  acc = ga.search(features,labels)
-            
-
-        running_loss +=loss
+        model.train()
+        pso.zero_grad()
+        outputs= model(features)
+        
+        
+        
+        loss , acc, _,_, _= objective(outputs, labels, CrossEntropy)
+        loss.backward()
+        pso.step()
+        
+        
         running_acc +=acc
+        running_loss +=loss.item()
         iter_inbatch +=1
             
-            
-            #progress_bar.set_description("Training Epochs : {} , Loss : {}".format(global_epochs,(running_loss/iter_inbatch)))
 
         # get loss in current iteration
-        train_acc = running_acc/iter_inbatch
         train_loss = running_loss/iter_inbatch
-        vali_loss, vali_acc , cm_plot , roc_plot = eval_model(ga, device, loss_criterion, testing_set, classes, cnn)
+        train_acc = running_acc/iter_inbatch
+        #print(train_loss)
+        vali_loss , vali_acc ,cm_plot , roc_plot = eval_model(model, pso, device, loss_criterion, validation_set, classes, cnn)
         
-        print("Epoch : {}, TRAIN LOSS : {}, TRAIN ACC : {} , VALI LOSS : {} , VALI ACC : {}".format(global_epochs,train_loss, train_acc, vali_loss, vali_acc))
+        print("Epoch : {} , TRAIN LOSS : {} , TRAIN ACC {} , VALI LOSS : {} , VAL_ACC : {} ".format(global_epochs,train_loss, train_acc, vali_loss, vali_acc))
 
-        # append in array 
+         # append loss and accuracy in current epochs in array
         loss_train_logs = np.append(loss_train_logs, train_loss)
         loss_vali_logs = np.append(loss_vali_logs, vali_loss)
-        
         acc_train_logs = np.append(acc_train_logs, train_acc)
-        acc_vali_logs = np.append(acc_vali_logs, vali_acc)
+        acc_vali_logs = np.append(acc_vali_logs,vali_acc)
         
         # Plot Figure
-        loss_figure = plot_diff(loss_train_logs, loss_vali_logs," GA Loss")
-        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'GA Accuracy') # accuracy different
+        loss_figure = plot_diff(loss_train_logs, loss_vali_logs,'PSO Loss') # loss different
+        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'PSO Accuracy') # accuracy different
 
 
         # Add logs to tensorboard
+        # add scalar values
         writer.add_scalar("Loss/Train",train_loss,global_epochs)
         writer.add_scalar("Loss/Vali",vali_loss,global_epochs)
         writer.add_scalar("Acc/Train",train_acc,global_epochs)
-        writer.add_scalar("Acc/Vali", vali_acc,global_epochs)
+        writer.add_scalar("Acc/Vali", vali_acc, global_epochs)
         
-        writer.add_figure("Plot/loss",loss_figure,global_epochs)  
-        writer.add_figure("Plot/acc",acc_figure,global_epochs) 
-        writer.add_figure("Plot/cm",cm_plot,global_epochs) 
-        writer.add_figure("Plot/roc",roc_plot,global_epochs)       
-        
+        # add figures
+        writer.add_figure("Plot/loss",loss_figure,global_epochs)
+        writer.add_figure("Plot/acc",acc_figure,global_epochs)
+        writer.add_figure("Plot/cm",cm_plot, global_epochs)
+        writer.add_figure("Plot/roc",roc_plot, global_epochs)
+
+
         # save alls logs to csv files
-        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name='{}.csv'.format(savename))    
+        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name="{}.csv".format(savename))
         
-        
+
         # increment epoch
         global_epochs +=1
 
@@ -112,44 +116,45 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
 
 """
 
-def eval_model(ga, device, loss_criterion, testing_set,classes, cnn):
+def eval_model(model, pso, device, loss_criterion, testing_set, classes, cnn):
     
-    eval_progress_bar = tqdm(testing_set)
+    eval_progress_bar = tqdm((testing_set))
     eval_running_loss = 0 
     eval_running_acc = 0
     eval_iter_inbatch = 0
+    
     
     # store a predict proba and label in array and also its ground truth
     eval_pred_labels = np.array([])
     eval_pred_probas = []
     eval_gt_labels = np.array([])
-    with torch.no_grad():
-        
+   
+    
+    features , labels = cnn.extract_features(data=eval_progress_bar, device=device)
             
-        features , labels = cnn.extract_features(data=eval_progress_bar, device=device)
-        #  Set model to evaluation stage
-        emodel = ga.model
-        emodel.eval()
-            
-        predicted = emodel(features)
-
-            # calculate loss
-        eval_loss, eval_acc, pred_label, gt_label, pred_proba = objective(predicted,labels,loss_criterion)
         
-        eval_pred_labels = np.append(eval_pred_labels , pred_label)
-        eval_pred_probas.append(pred_proba)
+    model.eval()
+            
+            
+    predicted = model(features)
 
-        eval_gt_labels = np.append(eval_gt_labels, gt_label)
+    # calculate loss
+        
+    eval_loss, eval_acc, pred_label, gt_label, pred_proba = objective(predicted,labels,loss_criterion)
+        
+     
+    eval_pred_labels = np.append(eval_pred_labels , pred_label)
 
-        eval_running_acc +=eval_acc
+    eval_pred_probas.append(pred_proba)
 
-        eval_running_loss += eval_loss.item()
+    eval_gt_labels = np.append(eval_gt_labels, gt_label)
 
-        eval_iter_inbatch +=1
+    eval_running_acc +=eval_acc
+    eval_running_loss += eval_loss.item()
 
-            #eval_progress_bar.set_description("Evaluation Epochs : {} , Loss : {}".format(global_epochs, (eval_running_loss/eval_iter_inbatch)))
+    eval_iter_inbatch +=1
 
-     # concatenate probabilites array in to a shape  of (Number of image, prob of n_classes) 
+    # concatenate probabilites array in to a shape  of (Number of image, prob of n_classes) 
     # this contains probabilites predict for each classes for each images
     eval_pred_probas = np.concatenate(eval_pred_probas,axis=0)
 
@@ -158,16 +163,57 @@ def eval_model(ga, device, loss_criterion, testing_set,classes, cnn):
     # Plot Confusion matrix
     cm_fig = cm_plot(eval_pred_labels, eval_gt_labels, classes) 
     
+ 
     return (eval_running_loss/eval_iter_inbatch) , (eval_running_acc/eval_iter_inbatch) ,cm_fig, roc_fig
+
+
+
+
+
+
+"""
+******************
+Objective function :  Calculate a loss and accuracy of a model from a predict value and its ground truth
+******************
+
+******
+inputs
+******
+
+    
+    predicted : predicted(output) generated from a models
+
+    labels : ground truth of the data
+
+    loss_criterion :  Loss function or objective function
+
+
+*******
+returns
+*******
+    
+    loss : loss of the objective funciton
+
+    accuracy :  accuracy of output of the model 
+
+    pred_labels : labels predicted from model
+
+    gt_labels : ground truth of the data
+
+    proba : predicted probabilites of each labels(classes)
+
+""" 
+
 
 def objective(predicted, labels, loss_criterion):
     
-
-    # calcuate an objective loss 
-    loss = loss_criterion(softmax(predicted), labels)
-    
     # get probabilites of each label
-    proba = softmax(predicted).cpu().detach().numpy()
+    proba = softmax(predicted)
+    # calcuate an objective loss 
+    loss = loss_criterion(proba, labels)
+    
+    # detach a tensor out from computaional graph and conver to numpy
+    proba = proba.cpu().detach().numpy()
     # get predicted label
     pred_labels = [np.argmax(i) for i in proba]
     pred_labels = np.array(pred_labels)
@@ -186,27 +232,29 @@ def objective(predicted, labels, loss_criterion):
             correct+=1
 
     accuracy = 100 * (correct/len(gt_labels))
-    
-    # return (loss, accuracy,  predicted labels, ground truth labels, predicted probabilites)
+
     return  loss, accuracy, pred_labels, gt_labels, proba
 
-def test(ga, device, loss_criterion, testing_set, classes, cnn):
+
+def test(pso , device, loss_criterion, testing_set, classes, cnn):
 
     print("Testing Stage")
 
-    test_loss, test_acc, test_cm_plot, test_roc_plot = eval_model(ga, device, loss_criterion, testing_set, classes,cnn)
+    test_loss, test_acc, test_cm_plot, test_roc_plot = eval_model(pso , device, loss_criterion, testing_set, classes,cnn)
 
     print("**Testing stage** LOSS : {} , Accuracy : {} ".format(test_loss, test_acc))
 
     writer.add_figure("Plot/test_cm",test_cm_plot,1)
     writer.add_figure("Plot/test_roc", test_roc_plot,1)
 
+    
 
+    
 
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_GA"
+    savename ="CIFAR-10_PSO_local_testing"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -215,10 +263,10 @@ if __name__ == "__main__":
 
     batch_size = 5000
     
-    nepochs = 100
+    nepochs = 100000
 
     print("Using  **{}** as a device ".format(device))
-    #print("Batch Size : {}".format(batch_size))
+    print("Batch Size : {}".format(batch_size))
     print("Iteration : {} epochs".format(nepochs))
     
 
@@ -236,7 +284,7 @@ if __name__ == "__main__":
     
     validation_loader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=2, drop_last=True)
 
-    test_loader = DataLoader(testing_set, batch_size=len(testing_set), shuffle=False, num_workers=2)
+    test_loader = DataLoader(testing_set, batch_size=batch_size, shuffle=False, num_workers=2, drop_last=True)
 
     print("Training Dataset: {}".format(len(training_set)))
     print("Testing Dataset: {}".format(len(testing_set)))
@@ -249,45 +297,32 @@ if __name__ == "__main__":
 
     
     # Classifier Models
-
     model = Classifier(size="fc").to(device)
 
+    if device == "cuda" and torch.cuda.device_count() > 1 :
+
+        model = DataParallel(model) 
+        model.to(device)
+        print(" Usining {} gpu for training".format(torch.cuda.device_count()))
+        batch_size = batch_size * torch.cuda.device_count()
+
+    
     # Loss function Objective function 
     CrossEntropy = nn.CrossEntropyLoss()
  
     print("Total parameters : {}".format(sum(params.numel() for params in model.parameters())))
     print("Trainable parameters : {}".format(sum(params.numel() for params in model.parameters() if params.requires_grad)))
 
-    parameters_size =sum(params.numel() for params in model.parameters())
-  
+    parameters_size =sum(params.numel() for params in model.parameters() if params.requires_grad)
+
+   
+    pso = optim.Adam(params= model.parameters(), lr=0.01)
     
     # Pretrain features extrator (CNN)
     cnn = Extractor('large','./ckpt/gd.pth')
-
-    ga = GeneticAlgorithms(CrossEntropy,
-            population_size=10,
-            dimension=parameters_size,
-            numOfBits=50,
-            crossPoint=5,
-            lower_bound=-1,
-            upper_bound=1,
-            encoding='real')
-    print("Initializing poppulation")
     
-    features, labels = cnn.extract_features(train_loader,device=device)
-  
-    data = zip(features.cpu(), labels.detach().cpu())
-    
-    fitness_data=[ (x,y) for x,y  in data]
-    fitness_loader  = DataLoader(Fitness_Dataset(fitness_data), batch_size=40000,shuffle=False, num_workers=2, drop_last=False)
-    
-    
-    ga.initPop(model=model,device=device, data=fitness_loader)
-    print("Finish initializing population")
-
-    
-    train(ga, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename=savename) 
-    test(ga, device, CrossEntropy, test_loader, classes, cnn)
+    train(model, pso, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename) 
+    test(pso, device, CrossEntropy, test_loader, classes, cnn)
 
     writer.close()
 

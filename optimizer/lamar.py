@@ -1,28 +1,29 @@
-
 import random
 import numpy as np
 import array
 from sympy.combinatorics.graycode import GrayCode
 from sympy.combinatorics.graycode import gray_to_bin
+from sympy.combinatorics.graycode import bin_to_gray
 from deap import creator 
 from deap import base 
 from deap import tools
 from deap import algorithms
 from deap import benchmarks
 import torch
+from torch import optim
 from tqdm import tqdm
 
 # softmax activation function
 softmax = torch.nn.Softmax(dim=1)
 
-# Ecncoding type
+"""
 
-ENCODING = ['binary','real']
+Lamarckian Memetic algorithm
 
 """
-Genetic algorithms
-"""
-class GeneticAlgorithms():
+
+class memeticAlgorithms():
+    
     
     
     def __init__ (self, objective, population_size,
@@ -33,53 +34,33 @@ class GeneticAlgorithms():
                   crossProb=0.6, 
                   flipProb =1, 
                   mutateProb=0.1,
+                  omega = 10,
                   lower_bound = -1,
                   upper_bound = 1,
                   encoding = "binary"
                   ):
-        
-        if encoding not in ENCODING:
-            
-            raise ValueError("The type of encoding should be in this list {}".format(ENCODING))
-             
-        
-        
-    
+
         self.population_size = population_size 
         self.dimension = dimension  
         self.numOfBits = numOfBits 
         self.nElistists = nElitists 
-        self.crossPoint = crossPoint  # remove this no effect
+        self.crossPoint = crossPoint 
         self.crossProb = crossProb 
-        self.flipProb = flipProb 
+        self.flipProb = flipProb/(dimension * numOfBits) 
         self.mutateProb = mutateProb 
-        self.lower_bound = lower_bound 
-        self.upper_bound = upper_bound 
+        self.omega = omega
         self.maxnum = 2**self.numOfBits 
         self.encoding = encoding
         self.population = None 
         self.model = None
         self.device =None
         self.objective = objective
+        self.lower_bound = lower_bound
+        self.upper_bound =upper_bound
+        
+        self.optimizer = None
 
-    
-        """
-        Function to create a real coded GA 
-        """
-        def uniform(low,up,size=None):
-            try:
-                return [random.uniform(a,b) for a,b in zip(low,up)]
-            except TypeError:
-                
-                return  [random.uniform(a,b) for a, b in zip([low] * size, [up] *size)]
-
-       
-
-        """
-        Objective funtion or Loss funciton
-        """
         def objective_nn(data, labels):
-                 
             self.model.train()
             pred = self.model(data)
             loss = self.objective(softmax(pred),labels).item()
@@ -106,102 +87,27 @@ class GeneticAlgorithms():
             accuracy = 100 * (correct/len(gt_labels))
             
                 
-            return (loss,) , accuracy
-        
-        
+            return (loss,) , accuracy        
+
         """
         Deap Libraries section 
         """
-        
-        # Deap Creator
+         # Deap Creator
         self.creator = creator
         self.creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-        if self.encoding == "binary":
-       
-            self.creator.create("Individual", list, fitness=creator.FitnessMin, acc=list)
-            
-        else: 
-            
-            self.creator.create("Individual",array.array, typecode='d', fitness=creator.FitnessMin)
-        
-            
-    
+        self.creator.create("Individual", list, fitness=creator.FitnessMin, acc=list)
         
         # Deap Toolbox
         self.toolbox = base.Toolbox()
-        if self.encoding == "binary":
-            self.toolbox.register("attr_bool", random.randint, 0, 1)
-            self.toolbox.register("individual", tools.initRepeat, self.creator.Individual, self.toolbox.attr_bool, self.numOfBits*self.dimension)
-            self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
-            self.toolbox.register("mate", tools.cxTwoPoint)
-            self.toolbox.register("mutate",tools.mutFlipBit, indpb= self.flipProb)
-            
-        else:
-            self.toolbox.register("attr_float", uniform,self.lower_bound, self.upper_bound, self.dimension)
-            self.toolbox.register("individual", tools.initIterate, self.creator.Individual, self.toolbox.attr_float)
-            self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
-            self.toolbox.register("mate", tools.cxSimulatedBinaryBounded, low=self.lower_bound, up=self.upper_bound, eta=20.0)
-            self.toolbox.register("mutate",tools.mutPolynomialBounded, low=self.lower_bound, up=self.upper_bound, eta=20.0,  indpb= 1/self.dimension)
-            
-            
-            
-        
-        
+        self.toolbox.register("attr_bool", random.randint, 0, 1)
+        self.toolbox.register("individual", tools.initRepeat, self.creator.Individual, self.toolbox.attr_bool, self.numOfBits*self.dimension)
+        self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
+        self.toolbox.register("mate", tools.cxTwoPoint)
+        self.toolbox.register("mutate",tools.mutFlipBit, indpb= self.flipProb)
         self.toolbox.register("select",tools.selRoulette, fit_attr='fitness')
         self.toolbox.register("evaluate_nn",objective_nn)
-   
-    
         
-     
-    """
-    Initialize  a  population of genetic algorithms using for optimzing a weight for neural network
-    """     
-    def initPop(self, model, device, data):
         
-        #  number of population
-        self.population = self.toolbox.population(n=self.population_size)
-        
-        self.model = model
-        
-        self.device = device
-        
-        fitnesses = [] 
-        accuracy  = []
-        
-        print("Calculating fitness of individual")
-        
-        # iterate to each individual in a population
-        for individual in tqdm(self.population):
-            
-            if self.encoding == "binary":
-           
-                # convert a binary representation of a value from individual to a  value represent weight 
-                weight = self.separatevariables(individual)
-                
-            else:
-                
-                weight = individual
-            
-            
-            #  assign weight to a model 
-            self.weight_assign(weight)
-           
-            # calculate a fitness  for individual
-            for images, labels in data:
-                
-                images = images.to(device)
-                labels = labels.to(device)
-                fitness, acc = self.toolbox.evaluate_nn(images, labels)
-                
-                fitnesses.append(fitness)
-                accuracy.append(acc)
-        
-        # assign a fitness to each individual 
-        for individual , fitness , acc in zip(self.population,fitnesses, accuracy):
-            
-            individual.fitness.values = fitness
-            individual.acc = acc
-            
     """
     Seperate decison variable 
     
@@ -220,26 +126,41 @@ class GeneticAlgorithms():
              
         return variable
             
-
-    """
-    Convert chromosome to real number
-    
-    This is the same funciton in the constructor
-    """ 
-    def chrom2real(self, c):
         
-            indasstring = ''.join(map(str,c))
-            degray = gray_to_bin(indasstring)
-            numasint = int(degray, 2)
-            numinrange= self.lower_bound + ((self.upper_bound-self.lower_bound)*(numasint/(self.maxnum-1)))
+    def initPop(self, model, device, data):
             
-            return numinrange
+        #  number of population
+        self.population = self.toolbox.population(n=self.population_size)
         
+        self.model = model
         
-    """
-    Assign a weight to a model 
-    
-    """     
+        self.optimizer = optim.Rprop( self.model.parameters() , lr = 0.01)
+        
+        self.device = device
+        
+        fitnesses = [] 
+        accuracy  = []
+        
+        print("Calculating fitness of individual")
+        
+        # iterate to each individual in a population
+        for individual in tqdm(self.population):
+            weight = self.separatevariables(individual)
+            #  assign weight to a model 
+            self.weight_assign(weight)
+            # calculate a fitness  for individual
+            for images, labels in data:
+                images = images.to(device)
+                labels = labels.to(device)
+                fitness, acc = self.toolbox.evaluate_nn(images, labels)
+                fitnesses.append(fitness)
+                accuracy.append(acc)
+        # assign a fitness to each individual 
+        for individual , fitness , acc in zip(self.population,fitnesses, accuracy):
+            individual.fitness.values = fitness
+            individual.acc = acc
+            
+            
     def weight_assign(self, individual):
         
         # convert a list of weight from individual into numpy array      
@@ -267,34 +188,99 @@ class GeneticAlgorithms():
             
             # incremen the parameter count 
             params_count += layer.numel()
-        
-        
-             
-  
-    
     
     """
     Optimizing a neural network
     """
-    def search(self, images, labels):
-        
-        # print("Debug")
-        
-        # for i in self.population:
-        #     print(i.fitness.values[0])
-            
-        # a = self.toolbox.select(self.population, 1)
-        
-        # print(a[0].fitness.values)
-        
+    def weightsOutOfNetwork(self,nn):
+        outweights = []
+        #Collecting data from every layer and flattening it into one single array
+        for layer, param in self.model.state_dict().items():
+            data = param
+            flattened = (np.array(data).flatten()).tolist()
+            outweights += flattened
+        return outweights
+    
+    def rprop(self,trainingSet, trainingResults):
         
     
+        for i in range(20):
+            self.optimizer.zero_grad()   # zero the gradient buffers
+            output = self.model(trainingSet)
+            loss = self.objective(softmax(output), trainingResults)
+            
+            loss.backward()
+            self.optimizer.step()    # Does the update
+       
+        
+    
+    def real2chrom(self, c):
+       
+        numasint = int(((c - self.lower_bound)/(self.upper_bound - self.lower_bound))*(self.maxnum-1))
+        
+        if numasint == self.maxnum:
+            numasint -=1
+        chromosome = str(bin(numasint))[2:]
+       
+        if (len(chromosome) < self.numOfBits):
+            chromosome = ("0" * (self.numOfBits - len(chromosome))) + chromosome
+    
+        binString = ''.join(map(str, chromosome))
+
+        greyString = bin_to_gray(binString)
+
+        return greyString
+    
+    def chrom2real(self, c):
+        indasstring = ''.join(map(str,c))
+        degray = gray_to_bin(indasstring)
+        numasint = int(degray, 2)
+        numinrange= self.lower_bound + ( (self.upper_bound-self.lower_bound)*(numasint/(self.maxnum-1)))
+        
+        return numinrange
+    
+    
+    def weights2chrom(self,weights): # Insert weights into a single chromosome
+   
+        individual = []
+        for weight in weights:
+            if weight > self.upper_bound :
+                weight = self.upper_bound
+            elif weight< self.lower_bound:
+                weight = self.lower_bound
+            chromosome = self.real2chrom(weight)
+            chromList = list(map(int, list(chromosome)))
+            for x in chromList:
+                individual.append(x)
+        
+        return individual
+    
+    def weightsOutOfNetwork(self,nn):
+        outweights = []
+        #Collecting data from every layer and flattening it into one single array
+        for layer, param in self.model.state_dict().items():
+            data = param
+            flattened = (data.flatten().detach().clone().cpu().numpy()).tolist()
+            outweights += flattened
+        
+        return outweights
+    
+    
+    def lamarckian(self,individual, images, labels):
+        # Inserting individual into network and calculating the loss
+        sorted_ind = self.separatevariables(individual)
+        self.weight_assign(sorted_ind)
+        self.rprop(images, labels)
+   
+        # Creating a new individual based on the weights received from the network
+        indi = self.weights2chrom(self.weightsOutOfNetwork(self.model))
+        return indi
+    
+    
+    def search(self, images, labels):
         
         # select an offspring for reproduction 
         offspring = tools.selBest(self.population, self.nElistists) + self.toolbox.select(self.population, (self.population_size-self.nElistists))
-        
-       
-        
         # clone offspring
         offspring = list(map(self.toolbox.clone, offspring))
         
@@ -326,8 +312,16 @@ class GeneticAlgorithms():
                 # delete the fitness of a mutant child 
                 del mutant.fitness.values
         
+  
+        
         # Only select the individual that just perform crossover and mutation
         # to recalculate its fitness after performing reproduction 
+        for child in offspring:
+          # Remove offspring and replace them with a completely new one
+          offspring.remove(child)
+          lamarck_ind = self.lamarckian(child, images, labels)
+          offspring.append(creator.Individual(lamarck_ind))
+
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         
         fitnesses = []
@@ -358,12 +352,10 @@ class GeneticAlgorithms():
             ind.acc =acc
         
         # Survival Selection
-        self.population[:] =  tools.selBest(self.population + offspring, self.population_size)
-         
+        self.population[:] = offspring
         
         # select the best individual
         best_individual= tools.selBest(self.population,1)[0]
-        
         best_acc = best_individual.acc
         # for i in self.population:
         #     print(i.fitness.values[0])
@@ -379,6 +371,3 @@ class GeneticAlgorithms():
         
         
         return loss , best_acc
-    
-    
-

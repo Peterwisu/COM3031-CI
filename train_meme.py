@@ -15,7 +15,7 @@ from tqdm import tqdm
 from model import Classifier
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-from optimizer.ga import GeneticAlgorithms
+from optimizer.lamar import memeticAlgorithms
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
 from utils import Fitness_Dataset
 from extractor import Extractor
@@ -264,14 +264,14 @@ if __name__ == "__main__":
     # Pretrain features extrator (CNN)
     cnn = Extractor('large','./ckpt/gd.pth')
 
-    ga = GeneticAlgorithms(CrossEntropy,
-            population_size=10,
+    ga = memeticAlgorithms(CrossEntropy,
+            population_size=50,
             dimension=parameters_size,
             numOfBits=50,
             crossPoint=5,
             lower_bound=-1,
             upper_bound=1,
-            encoding='real')
+            encoding='binary')
     print("Initializing poppulation")
     
     features, labels = cnn.extract_features(train_loader,device=device)
