@@ -12,7 +12,7 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader  as DataLoader
 from tqdm import tqdm
-from model import Classifier
+from model.classifier import Classifier
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from optimizer.ga import GeneticAlgorithms

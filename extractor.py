@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from model import Classifier
+from model.classifier import Classifier
 
 class Extractor():
 

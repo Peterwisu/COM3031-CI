@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import cv2
 from tqdm import tqdm
 import torch.optim as optim
-from model import Classifier
+from model.classifier import Classifier
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt 
 import numpy as np
