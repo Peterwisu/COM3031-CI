@@ -20,7 +20,8 @@ class Extractor():
             
         else:
             
-            self.model = AutoEncoder()
+           # self.model = AutoEncoder(
+            self.model = Classifier(size=name)
             
             self.weight = torch.load(path)
             
@@ -29,8 +30,10 @@ class Extractor():
             self.model.load_state_dict(self.weight)
            
             # Empty the FC layer of the model to use one CNN layer as a fearure s extractor 
-            self.model.decoder = nn.Identity()
-            self.model.act =nn.Identity()
+            #self.model.decoder = nn.Identity()
+            #self.model.act =nn.Identity()
+
+            self.model.fc = nn.Identity()
             
             for params in self.model.parameters():
                 
@@ -69,7 +72,7 @@ class Extractor():
         return total_features, total_labels
         
         
-a = Extractor('large','ckpt/AUTo.pth')   
+a = Extractor('medium','./ckpt/CIFAR-10_GD_medium.pth')   
 print(a)
         
         

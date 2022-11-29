@@ -337,7 +337,7 @@ Main function
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_SGD"
+    savename ="CIFAR-10_GD_medium"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))

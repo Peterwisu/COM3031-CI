@@ -206,7 +206,7 @@ def test(ga, device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_GA"
+    savename ="CIFAR-10_memetic2"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -262,7 +262,7 @@ if __name__ == "__main__":
   
     
     # Pretrain features extrator (CNN)
-    cnn = Extractor('large','./ckpt/gd.pth')
+    cnn = Extractor('large','./ckpt/gd.pth')   
 
     ga = memeticAlgorithms(CrossEntropy,
             population_size=50,

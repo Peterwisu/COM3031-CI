@@ -134,7 +134,7 @@ class memeticAlgorithms():
         
         self.model = model
         
-        self.optimizer = optim.Rprop( self.model.parameters() , lr = 0.01)
+        self.optimizer = optim.Rprop( self.model.parameters() , lr = 0.001)
         
         self.device = device
         
