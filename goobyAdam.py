@@ -12,7 +12,7 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader  as DataLoader
 from tqdm import tqdm
-from model import Classifier
+
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from torch import optim
@@ -20,7 +20,7 @@ from torch.nn import DataParallel
 # import utility function 
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
 from extractor import Extractor
-
+from model.classifier import Classifier
 
 # softmax activation function
 softmax = nn.Softmax(dim=1)
@@ -53,10 +53,13 @@ def train(model, pso, device, loss_criterion, training_set, validation_set,nepoc
         
         with torch.no_grad():
             features , labels = cnn.extract_features(data=progress_bar, device=device)
-        
+        features = features.reshape(features.size(0),-1)
+        #print(features.shape)
         model.train()
         pso.zero_grad()
         outputs= model(features)
+        
+       
         
         
         
@@ -132,7 +135,7 @@ def eval_model(model, pso, device, loss_criterion, testing_set, classes, cnn):
     
     features , labels = cnn.extract_features(data=eval_progress_bar, device=device)
             
-        
+    features = features.reshape(features.size(0),-1)
     model.eval()
             
             
@@ -263,7 +266,7 @@ if __name__ == "__main__":
 
     batch_size = 5000
     
-    nepochs = 100000
+    nepochs = 100
 
     print("Using  **{}** as a device ".format(device))
     print("Batch Size : {}".format(batch_size))
@@ -319,7 +322,7 @@ if __name__ == "__main__":
     pso = optim.Adam(params= model.parameters(), lr=0.01)
     
     # Pretrain features extrator (CNN)
-    cnn = Extractor('large','./ckpt/gd.pth')
+    cnn = Extractor('large','./ckpt/AUTo.pth')
     
     train(model, pso, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename) 
     test(pso, device, CrossEntropy, test_loader, classes, cnn)

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from model.classifier import Classifier
+from model.autoencoder import AutoEncoder
 
 class Extractor():
 
@@ -19,15 +20,17 @@ class Extractor():
             
         else:
             
-            self.model = Classifier(size=name)
+            self.model = AutoEncoder()
             
             self.weight = torch.load(path)
+            
             
             # Load pretrained weight to a model 
             self.model.load_state_dict(self.weight)
            
             # Empty the FC layer of the model to use one CNN layer as a fearure s extractor 
-            self.model.fc = nn.Identity()
+            self.model.decoder = nn.Identity()
+            self.model.act =nn.Identity()
             
             for params in self.model.parameters():
                 
@@ -66,7 +69,8 @@ class Extractor():
         return total_features, total_labels
         
         
-        
+a = Extractor('large','ckpt/AUTo.pth')   
+print(a)
         
         
         

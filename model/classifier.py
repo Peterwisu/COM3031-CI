@@ -101,8 +101,8 @@ class Classifier(nn.Module):
         elif size=="fc":
             
             self.fc = nn.Sequential(#Linear_layer(256,32, do_dropout=True, do_batchnorm=True, dropout_rate=0.5),
-                                #Linear_layer(128,64 , do_dropout=True, do_batchnorm=True, dropout_rate=0.5),
-                                Linear_layer(256,10, do_dropout=False, do_batchnorm=False, do_activation=False),
+                                Linear_layer(256,64 , do_dropout=True, do_batchnorm=True, dropout_rate=0.5),
+                                Linear_layer(64,10, do_dropout=False, do_batchnorm=False, do_activation=False),
                                 )
 
     def forward(self, inputs): 

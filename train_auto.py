@@ -118,7 +118,7 @@ def train(model, device, loss_criterion, optimizer, training_set, validation_set
             loss.backward()
             optimizer.step()
         
-            running_loss +=loss.item()
+            running_loss +=loss.item()*images.size(0)
             iter_inbatch +=1
             
             
@@ -128,11 +128,13 @@ def train(model, device, loss_criterion, optimizer, training_set, validation_set
         train_loss = running_loss/iter_inbatch # calculate a mean loss (total loss / iteration)
 
 
-        eval_model(model,validation_set,loss_criterion,device)
+        eval_loss = eval_model(model,validation_set,loss_criterion,device)
 
         original, generate = visualize(model, validation_set, device)
 
-    
+        writer.add_scalar("loss/train",train_loss,global_epochs)
+        writer.add_scalar("loss/eval",eval_loss,global_epochs)
+        
         writer.add_figure("Image/original",original,global_epochs)     
         writer.add_figure("Image/generate",generate,global_epochs)
 
@@ -162,10 +164,14 @@ def eval_model(model, data_loader, loss_criterion, device) :
 
             loss = loss_criterion(predicted, images)
             
-            eval_running_loss += loss.item()
+            eval_running_loss += loss.item()*images.size(0)
             eval_iter_inbatch +=1
 
             eval_prog.set_description("EVAL : loss {} ".format(eval_running_loss/eval_iter_inbatch))
+    
+    eval_loss = eval_running_loss/eval_iter_inbatch
+    
+    return eval_loss
 
 
 
@@ -195,8 +201,9 @@ def visualize(model,data,device):
     fig, axes = plt.subplots(nrows=1, ncols=5, sharex=True, sharey=True, figsize=(12,4))
     for idx in np.arange(5):
         ax = fig.add_subplot(1, 5, idx+1, xticks=[], yticks=[])
-        print(images[idx].shape)
-        plt.imshow(images[idx].T)
+        img = images[idx]/2 + 0.5
+      
+        plt.imshow(img.T)
         ax.set_title(classes[labels[idx]])
     
     original = ax.get_figure()
@@ -206,7 +213,8 @@ def visualize(model,data,device):
     fig, axes = plt.subplots(nrows=1, ncols=5, sharex=True, sharey=True, figsize=(12,4))
     for idx in np.arange(5):
         ax = fig.add_subplot(1, 5, idx+1, xticks=[], yticks=[])
-        plt.imshow(gen_img[idx].T)
+        img = gen_img[idx]/2 + 0.5
+        plt.imshow(img.T)
         ax.set_title(classes[labels[idx]])
     
     generate = ax.get_figure()
@@ -238,7 +246,7 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available else "cpu"
 
-    batch_size = 32
+    batch_size = 16
 
     nepochs = 100
 
@@ -253,7 +261,7 @@ if __name__ == "__main__":
                                     
                                     #transforms.RandomGrayscale(p=0.1),
                                     transforms.ToTensor(), 
-                                    transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))
+                                    #transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))
                                     ]
                                     )
     
@@ -263,16 +271,16 @@ if __name__ == "__main__":
     testing_set  = torchvision.datasets.CIFAR10(root='./../data', train=False, download=True, transform=transform)
 
 
-    training_data, validation_data = random_split(training_set, [40000, 10000])
+
     
     
 
-    train_loader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=2)
-    validation_loader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=2)
-    test_loader = DataLoader(testing_set, batch_size=batch_size, shuffle=True, num_workers=2)
+    train_loader = DataLoader(training_set, batch_size=batch_size, shuffle=True, num_workers=2)
 
-    print("Training Dataset: {}".format(len(training_data)))
-    print("Validation Dataset: {}".format(len(validation_data)))
+    test_loader = DataLoader(testing_set, batch_size=batch_size, shuffle=False, num_workers=2)
+
+    print("Training Dataset: {}".format(len(training_set)))
+    
     print("Testing Dataset: {}".format(len(testing_set)))
     
     # labels of dataset
@@ -290,18 +298,19 @@ if __name__ == "__main__":
     
     
     # Loss function Objective function 
-    loss = nn.L1Loss()
+    #loss = nn.L1Loss()
+    loss = nn.BCELoss()
 
-    # Optimizer 
-    optimizer = optim.Adam([params  for params in model.parameters() if params.requires_grad], lr=0.0001)
+    # Optimizer
+    optimizer = optim.Adam([params  for params in model.parameters() if params.requires_grad], lr=0.001)
     
     print("Total parameters : {}".format(sum(params.numel() for params in model.parameters())))
     print("Trainable parameters : {}".format(sum(params.numel() for params in model.parameters() if params.requires_grad)))
 
 
-    train(model, device, loss, optimizer, train_loader, validation_loader, nepochs, classes, savename) 
+    train(model, device, loss, optimizer, train_loader, test_loader, nepochs, classes, savename) 
 
-    test(model, device, loss, test_loader, classes)
+    #test(model, device, loss, test_loader, classes)
 
     save_model(model,"{}.pth".format(savename)) 
     
