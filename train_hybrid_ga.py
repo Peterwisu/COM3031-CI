@@ -84,8 +84,8 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         acc_vali_logs = np.append(acc_vali_logs, vali_acc)
         
         # Plot Figure
-        loss_figure = plot_diff(loss_train_logs, loss_vali_logs," GA Loss")
-        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'GA Accuracy') # accuracy different
+        loss_figure = plot_diff(loss_train_logs, loss_vali_logs," GA Loss (Binary coding)")
+        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'GA Accuracy (Binary Coding)') # accuracy different
 
 
         # Add logs to tensorboard
@@ -207,7 +207,7 @@ def test(ga, device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_HYBRID_GA"
+    savename ="CIFAR-10_HYBRID_GA_binary_coding"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -286,10 +286,10 @@ if __name__ == "__main__":
             model=model,
             device=device,
             data=fitness_loader,
-            
+            numOfBits=50, 
             lower_bound=-1,
             upper_bound=1,
-            encoding='real')
+            encoding='binary')
     print("Finish initializing population")
 
     

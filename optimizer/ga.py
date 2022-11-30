@@ -109,7 +109,7 @@ class GeneticAlgorithms():
             accuracy = 100 * (correct/len(gt_labels))
             
                 
-            return (loss,) , accuracy
+            return (1/loss,) , accuracy
         
         
         """
@@ -118,7 +118,7 @@ class GeneticAlgorithms():
         
         # Deap Creator
         self.creator = creator
-        self.creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+        self.creator.create("FitnessMin", base.Fitness, weights=(1.0,))
         if self.encoding == "binary":
        
             self.creator.create("Individual", list, fitness=creator.FitnessMin, acc=list)
@@ -292,7 +292,7 @@ class GeneticAlgorithms():
         
     
         
-        # select an offspring for reproduction 
+        # survival select
         offspring = tools.selBest(self.population, self.nElistists) + self.toolbox.select(self.population, (self.population_size-self.nElistists))
         
        
@@ -359,7 +359,7 @@ class GeneticAlgorithms():
             ind.fitness.values = fit
             ind.acc =acc
         
-        # Survival Selection
+        # mate Selection 
         self.population[:] =  tools.selBest(self.population + offspring, self.population_size)
          
         
@@ -380,7 +380,7 @@ class GeneticAlgorithms():
         loss = best_individual.fitness.values[0]
         
         
-        return loss , best_acc
+        return 1/loss , best_acc
     
     
 

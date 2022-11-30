@@ -88,8 +88,8 @@ def train(model, pso, device, loss_criterion, training_set, validation_set,nepoc
         acc_vali_logs = np.append(acc_vali_logs,vali_acc)
         
         # Plot Figure
-        loss_figure = plot_diff(loss_train_logs, loss_vali_logs,'PSO Loss') # loss different
-        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'PSO Accuracy') # accuracy different
+        loss_figure = plot_diff(loss_train_logs, loss_vali_logs,'Adam Loss') # loss different
+        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'Adam Accuracy') # accuracy different
 
 
         # Add logs to tensorboard
@@ -239,11 +239,11 @@ def objective(predicted, labels, loss_criterion):
     return  loss, accuracy, pred_labels, gt_labels, proba
 
 
-def test(pso , device, loss_criterion, testing_set, classes, cnn):
+def test(model,pso , device, loss_criterion, testing_set, classes, cnn):
 
     print("Testing Stage")
 
-    test_loss, test_acc, test_cm_plot, test_roc_plot = eval_model(pso , device, loss_criterion, testing_set, classes,cnn)
+    test_loss, test_acc, test_cm_plot, test_roc_plot = eval_model(model,pso , device, loss_criterion, testing_set, classes,cnn)
 
     print("**Testing stage** LOSS : {} , Accuracy : {} ".format(test_loss, test_acc))
 
@@ -257,7 +257,7 @@ def test(pso , device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_PSO_local_testing"
+    savename ="CIFAR-10_Pretrain_adam"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -274,7 +274,13 @@ if __name__ == "__main__":
     
 
     print("Loading dataset ....")
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
+    transform = transforms.Compose([
+                                    transforms.RandomHorizontalFlip(p=0.5),
+                                    transforms.RandomVerticalFlip(p=0.5),
+                                    transforms.RandomGrayscale(p=0.3),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))
+                                    ])
     
     # Prepare Dataset
     training_set = torchvision.datasets.CIFAR10(root='./../data', train=True, download=True, transform=transform)
@@ -319,13 +325,13 @@ if __name__ == "__main__":
     parameters_size =sum(params.numel() for params in model.parameters() if params.requires_grad)
 
    
-    pso = optim.Adam(params= model.parameters(), lr=0.01)
+    pso = optim.Adam(params= model.parameters(), lr=0.001)
     
     # Pretrain features extrator (CNN)
-    cnn = Extractor('large','./ckpt/AUTo.pth')
+    cnn = Extractor('large','./ckpt/CIFAR-10_GD_SGD.pth')
     
     train(model, pso, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename) 
-    test(pso, device, CrossEntropy, test_loader, classes, cnn)
+    test(model,pso, device, CrossEntropy, test_loader, classes, cnn)
 
     writer.close()
 

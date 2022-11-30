@@ -207,7 +207,7 @@ def test(ga, device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_meme"
+    savename ="CIFAR-10_meme_steady_state"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -288,7 +288,7 @@ if __name__ == "__main__":
             device=device,
             data=fitness_loader,
             numOfBits=50,
-            crossPoint=5,
+            ls_iter=3, 
             lower_bound=-1,
             upper_bound=1,
             encoding='binary')

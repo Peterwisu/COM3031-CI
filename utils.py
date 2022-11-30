@@ -371,7 +371,7 @@ def plot_pareto_front(all_fronts, first_front):
     ax.scatter(first_front[:,0], first_front[:,1], s=150, facecolor='none', edgecolors='g', linewidths=2)
     ax.plot(first_front[:,0], first_front[:,1], c='r', linestyle='dashdot')
     ax.set_title("NSGA II Pareto front")
-    ax.set_xlabel('Loss')
+    ax.set_xlabel('Accuracy')
     ax.set_ylabel("Sum of square weights of a model")
     ax.grid()
     #plt.axis("tight")

@@ -106,7 +106,7 @@ class NSGA_II():
             accuracy = 100 * (correct/len(gt_labels))
             
                 
-            return (loss,reg) , accuracy
+            return (accuracy,reg) , loss
         
         
         """
@@ -115,7 +115,7 @@ class NSGA_II():
         
         # Deap Creator
         self.creator = creator
-        self.creator.create("FitnessMin", base.Fitness, weights=(-1.0,-1.0))
+        self.creator.create("FitnessMin", base.Fitness, weights=(1.0,-1.0))
        
         if self.encoding == "binary" :
             

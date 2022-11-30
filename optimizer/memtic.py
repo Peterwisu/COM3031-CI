@@ -119,14 +119,14 @@ class memeticAlgorithms():
             accuracy = 100 * (correct/len(gt_labels))
             
                 
-            return (loss,) , accuracy        
+            return (1/loss,) , accuracy        
 
         """
         Deap Libraries section 
         """
          # Deap Creator
         self.creator = creator
-        self.creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+        self.creator.create("FitnessMin", base.Fitness, weights=(1.0,))
         self.creator.create("Individual", list, fitness=creator.FitnessMin, acc=list)
         
         # Deap Toolbox
@@ -515,7 +515,12 @@ class memeticAlgorithms():
             ind.acc =acc
         
         # Survival Selection
-        self.population[:] = offspring
+        self.population[:] =  tools.selBest(self.population + offspring, self.population_size)#offspring
+
+
+
+
+
         
         # select the best individual
         best_individual= tools.selBest(self.population,1)[0]
@@ -533,4 +538,4 @@ class memeticAlgorithms():
         loss = best_individual.fitness.values[0]
         
         
-        return loss , best_acc
+        return 1/loss , best_acc
