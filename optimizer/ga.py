@@ -25,11 +25,14 @@ Genetic algorithms
 class GeneticAlgorithms():
     
     
-    def __init__ (self, objective, population_size,
-                  dimension,
+    def __init__ (self, 
+                  objective, 
+                  population_size,
+                  model,
+                  device,
+                  data,
                   numOfBits = 10,
                   nElitists=1,
-                  crossPoint=3, 
                   crossProb=0.6, 
                   flipProb =1, 
                   mutateProb=0.1,
@@ -43,23 +46,23 @@ class GeneticAlgorithms():
             raise ValueError("The type of encoding should be in this list {}".format(ENCODING))
              
         
-        
+        self.model = model
+            
+        self.device = device
     
         self.population_size = population_size 
-        self.dimension = dimension  
+        self.dimension = sum([ params.numel() for params in self.model.parameters()])
         self.numOfBits = numOfBits 
         self.nElistists = nElitists 
-        self.crossPoint = crossPoint  # remove this no effect
+    
         self.crossProb = crossProb 
-        self.flipProb = flipProb 
+        self.flipProb = flipProb/(self.dimension * numOfBits) 
         self.mutateProb = mutateProb 
         self.lower_bound = lower_bound 
         self.upper_bound = upper_bound 
         self.maxnum = 2**self.numOfBits 
         self.encoding = encoding
-        self.population = None 
-        self.model = None
-        self.device =None
+        
         self.objective = objective
 
     
@@ -149,58 +152,57 @@ class GeneticAlgorithms():
         
         self.toolbox.register("select",tools.selRoulette, fit_attr='fitness')
         self.toolbox.register("evaluate_nn",objective_nn)
+        
+        self.population = self.toolbox.population(n=self.population_size)
+        
+        """
+        Initialize  a  population of genetic algorithms using for optimzing a weight for neural network
+        """     
+        def initPop(data):
+            
+            fitnesses = [] 
+            accuracy  = []
+            
+            print("Calculating fitness of individual")
+            
+            # iterate to each individual in a population
+            for individual in tqdm(self.population):
+                
+                if self.encoding == "binary":
+            
+                    # convert a binary representation of a value from individual to a  value represent weight 
+                    weight = self.separatevariables(individual)
+                    
+                else:
+                    
+                    weight = individual
+                
+                
+                #  assign weight to a model 
+                self.weight_assign(weight)
+            
+                # calculate a fitness  for individual
+                for images, labels in data:
+                    
+                    images = images.to(self.device)
+                    labels = labels.to(self.device)
+                    fitness, acc = self.toolbox.evaluate_nn(images, labels)
+                    
+                    fitnesses.append(fitness)
+                    accuracy.append(acc)
+            
+            # assign a fitness to each individual 
+            for individual , fitness , acc in zip(self.population,fitnesses, accuracy):
+                
+                individual.fitness.values = fitness
+                individual.acc = acc
+                
+        initPop(data)
    
     
         
      
-    """
-    Initialize  a  population of genetic algorithms using for optimzing a weight for neural network
-    """     
-    def initPop(self, model, device, data):
-        
-        #  number of population
-        self.population = self.toolbox.population(n=self.population_size)
-        
-        self.model = model
-        
-        self.device = device
-        
-        fitnesses = [] 
-        accuracy  = []
-        
-        print("Calculating fitness of individual")
-        
-        # iterate to each individual in a population
-        for individual in tqdm(self.population):
-            
-            if self.encoding == "binary":
-           
-                # convert a binary representation of a value from individual to a  value represent weight 
-                weight = self.separatevariables(individual)
-                
-            else:
-                
-                weight = individual
-            
-            
-            #  assign weight to a model 
-            self.weight_assign(weight)
-           
-            # calculate a fitness  for individual
-            for images, labels in data:
-                
-                images = images.to(device)
-                labels = labels.to(device)
-                fitness, acc = self.toolbox.evaluate_nn(images, labels)
-                
-                fitnesses.append(fitness)
-                accuracy.append(acc)
-        
-        # assign a fitness to each individual 
-        for individual , fitness , acc in zip(self.population,fitnesses, accuracy):
-            
-            individual.fitness.values = fitness
-            individual.acc = acc
+   
             
     """
     Seperate decison variable 

@@ -243,7 +243,7 @@ def test(pso , device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_PSO_local_testing"
+    savename ="CIFAR-10_HYBRID_PSO"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -252,7 +252,7 @@ if __name__ == "__main__":
 
     batch_size = 5000
     
-    nepochs = 5
+    nepochs = 100
 
     print("Using  **{}** as a device ".format(device))
     print("Batch Size : {}".format(batch_size))
@@ -311,7 +311,7 @@ if __name__ == "__main__":
     print(pso.pso_type)
     
     # Pretrain features extrator (CNN)
-    cnn = Extractor('large','./ckpt/gd.pth')
+    cnn = Extractor('large','./ckpt/CIFAR-10_GD_SGD.pth')
     
     train(pso, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename) 
     test(pso, device, CrossEntropy, test_loader, classes, cnn)

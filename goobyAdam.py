@@ -53,7 +53,7 @@ def train(model, pso, device, loss_criterion, training_set, validation_set,nepoc
         
         with torch.no_grad():
             features , labels = cnn.extract_features(data=progress_bar, device=device)
-        
+        features = features.reshape(features.size(0),-1)
         #print(features.shape)
         model.train()
         pso.zero_grad()
@@ -135,7 +135,7 @@ def eval_model(model, pso, device, loss_criterion, testing_set, classes, cnn):
     
     features , labels = cnn.extract_features(data=eval_progress_bar, device=device)
             
-    
+    features = features.reshape(features.size(0),-1)
     model.eval()
             
             
@@ -257,7 +257,7 @@ def test(pso , device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_adam_two_stage"
+    savename ="CIFAR-10_PSO_local_testing"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))

@@ -15,7 +15,7 @@ from tqdm import tqdm
 from model.classifier import Classifier
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-from optimizer.lamar import memeticAlgorithms
+from optimizer.memtic import memeticAlgorithms
 from utils import save_logs , plot_diff ,cm_plot ,roc_plot
 from utils import Fitness_Dataset
 from extractor import Extractor
@@ -29,7 +29,7 @@ softmax = nn.Softmax(dim=1)
 """
 
     Train Model
-
+    
 """
 def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes, cnn, savename):
     
@@ -84,8 +84,8 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         acc_vali_logs = np.append(acc_vali_logs, vali_acc)
         
         # Plot Figure
-        loss_figure = plot_diff(loss_train_logs, loss_vali_logs," GA Loss")
-        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'GA Accuracy') # accuracy different
+        loss_figure = plot_diff(loss_train_logs, loss_vali_logs," Memetic Loss")
+        acc_figure = plot_diff(acc_train_logs, acc_vali_logs,'Memetic Accuracy') # accuracy different
 
 
         # Add logs to tensorboard
@@ -197,7 +197,8 @@ def test(ga, device, loss_criterion, testing_set, classes, cnn):
     test_loss, test_acc, test_cm_plot, test_roc_plot = eval_model(ga, device, loss_criterion, testing_set, classes,cnn)
 
     print("**Testing stage** LOSS : {} , Accuracy : {} ".format(test_loss, test_acc))
-
+    writer.add_scalar("Loss/Test",test_loss,1)
+    writer.add_scalar("Loss/ACC",test_acc,1)
     writer.add_figure("Plot/test_cm",test_cm_plot,1)
     writer.add_figure("Plot/test_roc", test_roc_plot,1)
 
@@ -206,7 +207,7 @@ def test(ga, device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_memetic2"
+    savename ="CIFAR-10_meme"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -223,7 +224,13 @@ if __name__ == "__main__":
     
 
     print("Loading dataset ....")
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
+    transform = transforms.Compose([
+                                    transforms.RandomHorizontalFlip(p=0.5),
+                                    transforms.RandomVerticalFlip(p=0.5),
+                                    transforms.RandomGrayscale(p=0.3),
+                                    transforms.ToTensor(), 
+                                    transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))
+                                    ])
     
     # Prepare Dataset
     training_set = torchvision.datasets.CIFAR10(root='./../data', train=True, download=True, transform=transform)
@@ -262,27 +269,29 @@ if __name__ == "__main__":
   
     
     # Pretrain features extrator (CNN)
-    cnn = Extractor('large','./ckpt/gd.pth')   
+    cnn = Extractor('large','./ckpt/CIFAR-10_GD_SGD.pth')
 
-    ga = memeticAlgorithms(CrossEntropy,
-            population_size=50,
-            dimension=parameters_size,
-            numOfBits=50,
-            crossPoint=5,
-            lower_bound=-1,
-            upper_bound=1,
-            encoding='binary')
     print("Initializing poppulation")
     
     features, labels = cnn.extract_features(train_loader,device=device)
   
     data = zip(features.cpu(), labels.detach().cpu())
     
-    fitness_data=[ (x,y) for x,y  in data]
+    fitness_data=[(x,y) for x,y  in data]
     fitness_loader  = DataLoader(Fitness_Dataset(fitness_data), batch_size=40000,shuffle=False, num_workers=2, drop_last=False)
     
     
-    ga.initPop(model=model,device=device, data=fitness_loader)
+    #ga.initPop(model=model,device=device, data=fitness_loader)
+    ga = memeticAlgorithms(CrossEntropy,
+            population_size=50,
+            model=model,
+            device=device,
+            data=fitness_loader,
+            numOfBits=50,
+            crossPoint=5,
+            lower_bound=-1,
+            upper_bound=1,
+            encoding='binary')
     print("Finish initializing population")
 
     

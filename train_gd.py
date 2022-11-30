@@ -30,7 +30,7 @@ import pandas as pd
 import os
 
 # import utility function 
-from utils import save_logs , plot_diff ,cm_plot ,roc_plot , save_model
+from utils import save_logs , plot_diff ,cm_plot ,roc_plot , save_model, predict_plot
 
 
 # softmax activation function
@@ -124,7 +124,7 @@ def train(model, device, loss_criterion, optimizer, training_set, validation_set
 
         # calculate evaluation loss and accuracy
         # Plot confusion matrix and ROC curve with evaluation results ( Validation
-        vali_loss , vali_acc ,cm_plot , roc_plot = eval_model(model, device, loss_criterion, validation_set, classes)
+        vali_loss , vali_acc ,cm_plot , roc_plot, pred_plot= eval_model(model, device, loss_criterion, validation_set, classes)
 
         # append loss and accuracy in current epochs in array
         loss_train_logs = np.append(loss_train_logs, train_loss)
@@ -149,6 +149,7 @@ def train(model, device, loss_criterion, optimizer, training_set, validation_set
         writer.add_figure("Plot/acc",acc_figure,global_epochs)
         writer.add_figure("Plot/cm",cm_plot, global_epochs)
         writer.add_figure("Plot/roc",roc_plot, global_epochs)
+        writer.add_figure("Plot/predict",pred_plot, global_epochs)
 
 
         # save alls logs to csv files
@@ -163,12 +164,13 @@ def test(model, device, loss_criterion, testing_set, classes):
 
     print("Testing Stage")
 
-    test_loss, test_acc, test_cm_plot, test_roc_plot = eval_model(model, device, loss_criterion, testing_set, classes, stage="Testing")
+    test_loss, test_acc, test_cm_plot, test_roc_plot, test_pred_plot = eval_model(model, device, loss_criterion, testing_set, classes, stage="Testing")
 
     print("**Testing stage** LOSS : {} , Accuracy : {} ".format(test_loss, test_acc))
 
     writer.add_figure("Plot/test_cm",test_cm_plot,1)
     writer.add_figure("Plot/test_roc", test_roc_plot,1)
+    writer.add_figure("Plot/test_predict",test_pred_plot,1)
 
     
     
@@ -257,10 +259,12 @@ def eval_model(model, device, loss_criterion, eval_set, classes, stage='Validati
     roc_fig = roc_plot(eval_pred_probas,eval_gt_labels, classes)
     # Plot Confusion matrix
     cm_fig = cm_plot(eval_pred_labels, eval_gt_labels, classes)
+    # Plot the predict label and groud truth images
+    pred_fig = predict_plot(model,eval_set,classes,device)
 
     
     # return  ( evaluation loss , evaluation accuracy ,  confusion matrix figure, roc curve figure)
-    return (eval_running_loss/eval_iter_inbatch) , (eval_running_acc/eval_iter_inbatch) ,cm_fig, roc_fig
+    return (eval_running_loss/eval_iter_inbatch) , (eval_running_acc/eval_iter_inbatch) ,cm_fig, roc_fig, pred_fig
 
 """
 ******************
@@ -337,7 +341,7 @@ Main function
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_GD_medium"
+    savename ="CIFAR-10_GD_SGD"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -354,12 +358,13 @@ if __name__ == "__main__":
     
 
     print("Loading dataset ....")
-    transform = transforms.Compose([#transforms.RandomAffine(degrees=(30, 70), translate=(0.1, 0.3), scale=(0.5, 0.75)),
-                                    #transforms.RandomRotation(degrees=(0, 180)),
-                                    
-                                    #transforms.RandomGrayscale(p=0.1),
+    transform = transforms.Compose([
+                                    transforms.RandomHorizontalFlip(p=0.5),
+                                    transforms.RandomVerticalFlip(p=0.5),
+                                    transforms.RandomGrayscale(p=0.3),
                                     transforms.ToTensor(), 
-                                    transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
+                                    transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))
+                                    ])
     
     # Prepare Dataset
     training_set = torchvision.datasets.CIFAR10(root='./../data', train=True, download=True, transform=transform)
@@ -389,11 +394,14 @@ if __name__ == "__main__":
     # Classifier Models
     model = Classifier(size='large').to(device)
     
+    print("Model Architecture")
+    print(model)
+    
     # Loss function Objective function 
     CrossEntropy = nn.CrossEntropyLoss()
 
     # Optimizer 
-    optimizer = optim.Adam([params  for params in model.parameters() if params.requires_grad], lr=0.001)
+    optimizer = optim.SGD([params  for params in model.parameters() if params.requires_grad], lr=0.001)
     
     print("Total parameters : {}".format(sum(params.numel() for params in model.parameters())))
     print("Trainable parameters : {}".format(sum(params.numel() for params in model.parameters() if params.requires_grad)))

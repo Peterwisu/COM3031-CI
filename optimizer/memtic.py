@@ -17,49 +17,81 @@ from tqdm import tqdm
 softmax = torch.nn.Softmax(dim=1)
 
 """
-
+****************************
 Lamarckian Memetic algorithm
-
+****************************
 """
 
 class memeticAlgorithms():
     
     
-    
-    def __init__ (self, objective, population_size,
-                  dimension,
+     
+    def __init__ (self,
+                  objective, 
+                  population_size,
+                  model,
+                  data,
+                  device,
                   numOfBits = 10,
                   nElitists=1,
-                  crossPoint=3, 
                   crossProb=0.6, 
                   flipProb =1, 
                   mutateProb=0.1,
-                  omega = 10,
                   lower_bound = -1,
                   upper_bound = 1,
-                  encoding = "binary"
+                  encoding = "binary",
+                  ls_iter = 5,
+                  ls_lr=0.001,
                   ):
 
+        # neural network model
+        self.model = model
+        # device
+        self.device =device
+        
+        # size of pupulation  
         self.population_size = population_size 
-        self.dimension = dimension  
+        # dimension of decision variable
+        self.dimension = sum([params.numel() for params in self.model.parameters()])
+        
+        # Number of bits ( only required in binary or gray coding)
         self.numOfBits = numOfBits 
+        # Number of Elistis 
         self.nElistists = nElitists 
-        self.crossPoint = crossPoint 
+        
+        # Cross over probabilties
         self.crossProb = crossProb 
-        self.flipProb = flipProb/(dimension * numOfBits) 
+        
+        # objective function
+        
+        # Bit flip probabilites 
+        self.flipProb = flipProb/(self.dimension * numOfBits) 
+        # Mutation probabilities
         self.mutateProb = mutateProb 
-        self.omega = omega
-        self.maxnum = 2**self.numOfBits 
+        
+        
+        
+        
+        # Max number
+        self.maxnum = 2**self.numOfBits
+        # Type of encoding
         self.encoding = encoding
-        self.population = None 
-        self.model = None
-        self.device =None
+        
+        # Objective functions 
         self.objective = objective
+        # Lower bound
         self.lower_bound = lower_bound
+        # Upper bound
         self.upper_bound =upper_bound
         
-        self.optimizer = None
-
+        # local search iteration 
+        self.ls_iter = ls_iter
+        # local search learning rate
+        self.ls_lr = ls_lr
+        # local search optimizer
+        self.optimizer = optim.Rprop( self.model.parameters() , lr = self.ls_lr)
+        
+        
         def objective_nn(data, labels):
             self.model.train()
             pred = self.model(data)
@@ -108,12 +140,53 @@ class memeticAlgorithms():
         self.toolbox.register("evaluate_nn",objective_nn)
         
         
+        
+        # Create population
+        self.population = self.toolbox.population(n=self.population_size)
+        
+        def initPop(data): 
+            fitnesses = [] 
+            accuracy  = []
+            
+            print("Calculating fitness of individual")
+            
+            # iterate to each individual in a population
+            for individual in tqdm(self.population):
+                weight = self.separatevariables(individual)
+                #  assign weight to a model 
+                self.weight_assign(weight)
+                # calculate a fitness  for individual
+                for images, labels in data:
+                    images = images.to(self.device)
+                    labels = labels.to(self.device)
+                    fitness, acc = self.toolbox.evaluate_nn(images, labels)
+                    fitnesses.append(fitness)
+                    accuracy.append(acc)
+            # assign a fitness to each individual 
+            for individual , fitness , acc in zip(self.population,fitnesses, accuracy):
+                individual.fitness.values = fitness
+                individual.acc = acc
+        initPop(data)
+        
     """
-    Seperate decison variable 
+    **********
+    spearatevariables :  Separate a chromosome of individuals and convert chromosome into real values
+    **********
     
-    This is the same function in a constructor
-    """
-    def separatevariables(self, v):
+    ****** 
+    inputs :
+    ******
+    
+        individual :  Individual containig list of chromosome
+    
+    *******
+    outputs :
+    *******
+    
+        variable : list of contain a weight or values of decision variables
+    
+    """ 
+    def separatevariables(self, individual):
             
         variable = []
         num_bits = self.numOfBits
@@ -121,46 +194,30 @@ class memeticAlgorithms():
         bit_counter = 0 
         for i in range(self.dimension):
                  
-            variable.append(self.chrom2real(v[bit_counter:num_bits*(1+i)]))
+            variable.append(self.chrom2real(individual[bit_counter:num_bits*(1+i)]))
             bit_counter+=num_bits
              
         return variable
             
         
-    def initPop(self, model, device, data):
+    
             
-        #  number of population
-        self.population = self.toolbox.population(n=self.population_size)
-        
-        self.model = model
-        
-        self.optimizer = optim.Rprop( self.model.parameters() , lr = 0.001)
-        
-        self.device = device
-        
-        fitnesses = [] 
-        accuracy  = []
-        
-        print("Calculating fitness of individual")
-        
-        # iterate to each individual in a population
-        for individual in tqdm(self.population):
-            weight = self.separatevariables(individual)
-            #  assign weight to a model 
-            self.weight_assign(weight)
-            # calculate a fitness  for individual
-            for images, labels in data:
-                images = images.to(device)
-                labels = labels.to(device)
-                fitness, acc = self.toolbox.evaluate_nn(images, labels)
-                fitnesses.append(fitness)
-                accuracy.append(acc)
-        # assign a fitness to each individual 
-        for individual , fitness , acc in zip(self.population,fitnesses, accuracy):
-            individual.fitness.values = fitness
-            individual.acc = acc
-            
-            
+    """
+    **********
+    weight_assing :  Assgin a weight to neuralnetwork
+    **********
+    
+    ****** 
+    inputs :
+    ******
+        individual : individual  cotainig a weight in (binary(or gray) or real coding) 
+    *******
+    outputs :
+    *******
+    
+        None 
+    
+    """          
     def weight_assign(self, individual):
         
         # convert a list of weight from individual into numpy array      
@@ -190,21 +247,49 @@ class memeticAlgorithms():
             params_count += layer.numel()
     
     """
-    Optimizing a neural network
+    *******************
+    weightsOutOfNetwork
+    *******************
+    
+    ****** 
+    inputs
+    ******
+    
+        None
+    
+    ******* 
+    returns
+    *******
+
+        weights : weight inside a network
     """
-    def weightsOutOfNetwork(self,nn):
-        outweights = []
+    def weightsOutOfNetwork(self):
+        weights = []
         #Collecting data from every layer and flattening it into one single array
         for layer, param in self.model.state_dict().items():
-            data = param
-            flattened = (np.array(data).flatten()).tolist()
-            outweights += flattened
-        return outweights
+        
+            flattened = (param.flatten().detach().clone().cpu().numpy()).tolist()
+            weights += flattened
+        
+        return weights 
     
+    """
+    **********
+    rprop : 
+    **********
+    
+    ****** 
+    inputs :
+    ******
+    
+    *******
+    outputs :
+    *******
+    """ 
     def rprop(self,trainingSet, trainingResults):
         
     
-        for i in range(20):
+        for i in range(self.ls_iter):
             self.optimizer.zero_grad()   # zero the gradient buffers
             output = self.model(trainingSet)
             loss = self.objective(softmax(output), trainingResults)
@@ -213,10 +298,27 @@ class memeticAlgorithms():
             self.optimizer.step()    # Does the update
        
         
+    """
+    **********
+    real2chrom : Convert a weight(real number) into chromosome(gray coding)
+    **********
     
-    def real2chrom(self, c):
+    ****** 
+    inputs:  
+    ****** 
+    
+        weights : weight in form of real number in range of lower and upper bound
+    
+    ******* 
+    returns:
+    *******
+    
+        grey : values of chromosome in gray code
+    
+    """ 
+    def real2chrom(self, weights):
        
-        numasint = int(((c - self.lower_bound)/(self.upper_bound - self.lower_bound))*(self.maxnum-1))
+        numasint = int(((weights - self.lower_bound)/(self.upper_bound - self.lower_bound))*(self.maxnum-1))
         
         if numasint == self.maxnum:
             numasint -=1
@@ -225,12 +327,30 @@ class memeticAlgorithms():
         if (len(chromosome) < self.numOfBits):
             chromosome = ("0" * (self.numOfBits - len(chromosome))) + chromosome
     
-        binString = ''.join(map(str, chromosome))
+        binary = ''.join(map(str, chromosome))
 
-        greyString = bin_to_gray(binString)
+        grey = bin_to_gray(binary)
 
-        return greyString
+        return grey
     
+    
+    """
+    **********
+    chrom2real: Convert chromosome into real numbers
+    **********
+   
+    ******
+    inputs:
+    ******
+    
+        c : chromosome  representing a weight 
+    
+    ******* 
+    outputs:
+    *******
+    
+        numinrange : real values of chromosome 
+    """ 
     def chrom2real(self, c):
         indasstring = ''.join(map(str,c))
         degray = gray_to_bin(indasstring)
@@ -240,6 +360,24 @@ class memeticAlgorithms():
         return numinrange
     
     
+    """
+    ************* 
+    weights2chrom : Retrive a list of chromosome in individual from a weights
+    *************
+    
+    ******
+    inputs: 
+    ******
+    
+        weight: weight of a networks
+    
+    *******
+    outputs:
+    *******
+    
+        individual:  individual containing list of chromosome
+
+    """ 
     def weights2chrom(self,weights): # Insert weights into a single chromosome
    
         individual = []
@@ -255,17 +393,20 @@ class memeticAlgorithms():
         
         return individual
     
-    def weightsOutOfNetwork(self,nn):
-        outweights = []
-        #Collecting data from every layer and flattening it into one single array
-        for layer, param in self.model.state_dict().items():
-            data = param
-            flattened = (data.flatten().detach().clone().cpu().numpy()).tolist()
-            outweights += flattened
-        
-        return outweights
+   
     
+    """
+    **********
+    lamarckian : 
+    **********
     
+    ****** 
+    inputs :
+    ******
+    
+    *******
+    outputs
+    """ 
     def lamarckian(self,individual, images, labels):
         # Inserting individual into network and calculating the loss
         sorted_ind = self.separatevariables(individual)
@@ -273,10 +414,32 @@ class memeticAlgorithms():
         self.rprop(images, labels)
    
         # Creating a new individual based on the weights received from the network
-        indi = self.weights2chrom(self.weightsOutOfNetwork(self.model))
+        indi = self.weights2chrom(self.weightsOutOfNetwork())
         return indi
     
     
+    """
+    ******
+    search : perform a optimization 
+    ******
+    
+    ******
+    inputs :
+    ******
+    
+        images : inputs images data
+        
+        labels :  ground truth of a images
+    
+    *******
+    outputs : 
+    *******
+    
+        loss :  loss of a best individual
+        
+        best_acc :  accuracy of a best individual
+    
+    """
     def search(self, images, labels):
         
         # select an offspring for reproduction 

@@ -13,9 +13,17 @@ from sklearn.preprocessing import label_binarize
 import seaborn as sns
 import pandas as pd
 import os
+import torch.nn as nn
+
+# softmax activation function
+softmax = nn.Softmax(dim=1)
 
 
-
+"""
+***************
+Fitness_Dataset :  Custom Dataloader for initializing an individual in Genetic Algorithms
+***************
+"""
 class Fitness_Dataset(torch.utils.data.dataset.Dataset):
     def __init__(self, _dataset):
         self.dataset = _dataset
@@ -413,11 +421,7 @@ def save_pareto_front(all_fronts,first_front, save_name):
     df1 = pd.DataFrame(all_fronts,columns=['loss','weight'])
     
     df2 = pd.DataFrame(first_front, columns=['loss','weight'])
-    
-    
-    
-    
-    
+     
     #  assign file name to a path
     #savepath = os.path.join(path,'gd_logs.csv') 
 
@@ -427,6 +431,78 @@ def save_pareto_front(all_fronts,first_front, save_name):
     # save file 
     df1.to_csv(savepath1, index=False)
     df2.to_csv(savepath2, index=False)
+    
+
+
+
+"""
+************
+predict_plot
+************
+
+******
+inputs
+******
+
+        model : model for predicting classes of images
+        
+        data : dataloader containing a images dataset
+        
+        device : device using in evaluate model ( CPU or CUDA) 
+
+*******
+returns
+*******
+
+        fig : figure containing a prediction of each images
+
+
+"""
+def predict_plot(model,data,classes,device):
+    
+    data_iter = iter(data)
+    
+    images, label = next(data_iter)
+   
+    # get predict labels 
+    model.eval() 
+    y_pred = model(images.to(device)) 
+    proba = softmax(y_pred).detach().clone().cpu().numpy()
+    pred_labels = [np.argmax(i) for i in proba]
+    pred_labels = np.array(pred_labels)
+    
+    images= images.numpy()
+    
+    
+    fig, axes = plt.subplots(nrows=1, ncols=5, sharex=True, sharey=True, figsize=(12,4))
+    
+    for idx in np.arange(5):
+        
+        ax = fig.add_subplot(1,5, idx+1, xticks=[], yticks=[])
+        img = images[idx]/2 + 0.5
+        plt.imshow(img.T)
+        
+        gt = classes[label[idx]]
+        y_pred = classes[pred_labels[idx]]
+        correct = False
+        if gt == y_pred:
+            correct =True
+        
+        result = "Ground Truth: {} \n Prediction: {}".format(gt,y_pred)
+        if correct:
+            ax.set_title(result, color='green')
+        else:
+            ax.set_title(result, color='red')
+        ax.axis("off")
+    plt.axis("off")  
+    fig = ax.get_figure()
+    plt.close(fig)  
+    return fig
+    
+
+
+
+
     
     
 

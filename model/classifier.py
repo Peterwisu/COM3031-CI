@@ -11,8 +11,6 @@ import torch
 import torch.nn as nn 
 from torch.nn import MaxPool2d
 
-
-
 """
 Main Classifier
 """
@@ -44,37 +42,11 @@ class Classifier(nn.Module):
                                   )
 
 
-            self.fc = nn.Sequential(Linear_layer(256,10,do_dropout=False, do_batchnorm=False, do_activation=False),
-                                # Linear_layer(128,64 , do_dropout=True, do_batchnorm=True, dropout_rate=0.5),
-                                # Linear_layer(64,10, do_dropout=False, do_batchnorm=False, do_activation=False),
-                    
-                                )
-
-        elif size== "medium":
-
-            self.conv = nn.Sequential(Conv_block(in_channels=3, out_channels=32, kernel_size=(3,3), do_batchnorm=True),  # B , 64 , 28 , 28
-                                
-                                  MaxPool2d(3, (2,2)), # B, 64 , 14 ,14 
-
-                                  Conv_block(in_channels=32, out_channels=64, kernel_size=(3,3), do_batchnorm=True), #  B ,128 , 12 , 12
-
-                                  MaxPool2d(3, (2,2)), # B , 128 , 5 ,5 
-
-                                  Conv_block(in_channels=64, out_channels=128,kernel_size=(3,3), do_batchnorm=True), # B , 256 , 3 , 3
-
-                                  MaxPool2d(3, (2,2)),  # B , 256 , 1 , 1
-                                    
-                                  nn.Flatten()
-                        
-                                     )
-
-
             self.fc = nn.Sequential(
-                                Linear_layer(128,64, do_dropout=False, do_batchnorm=True, dropout_rate=0.5),
-                                Linear_layer(64,32 , do_dropout=True, do_batchnorm=True, dropout_rate=0.5),
-                                Linear_layer(32,10, do_dropout=False, do_batchnorm=False, do_activation=False),
-                                # No activation function in last layer since the softmax in already implement in CrossEntropy
-                                )
+                                    Linear_layer(256,10, do_dropout=False, do_batchnorm=False, do_activation=False),
+                                    )
+
+        
         
         elif size =="small":
             
@@ -94,17 +66,15 @@ class Classifier(nn.Module):
 
 
             self.fc = nn.Sequential(Linear_layer(16,16, do_dropout=False, do_batchnorm=True, dropout_rate=0.5),
-                                #Linear_layer(128,64 , do_dropout=True, do_batchnorm=True, dropout_rate=0.5),
-                                Linear_layer(16,10, do_dropout=False, do_batchnorm=False, do_activation=False),
-                                # No activation function in last layer since the softmax in already implement in CrossEntropy
-                                )
+                            
+                                    Linear_layer(16,10, do_dropout=False, do_batchnorm=False, do_activation=False),
+                                    )
             
         elif size=="fc":
             
-            self.fc = nn.Sequential(#Linear_layer(256,32, do_dropout=True, do_batchnorm=True, dropout_rate=0.5),
-                                #=Linear_layer(256,64 , do_dropout=True, do_batchnorm=True, dropout_rate=0.5),
-                                Linear_layer(256,10, do_dropout=False, do_batchnorm=False, do_activation=False),
-                                )
+            self.fc = nn.Sequential( 
+                                    Linear_layer(256,10, do_dropout=False, do_batchnorm=False, do_activation=False),
+                                    )
 
     def forward(self, inputs): 
         

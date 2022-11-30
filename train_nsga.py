@@ -136,11 +136,7 @@ def eval_model(ga, device, loss_criterion, testing_set,classes,cnn):
     eval_pred_probas = []
     eval_gt_labels = np.array([])
     with torch.no_grad():
-        # for _ , (images, labels) in eval_progress_bar:
-
-        #     images = images.to(device)
-        #     labels = labels.to(device)
-        #     #  Set model to evaluation stage
+        
         
         features, labels = cnn.extract_features(data=eval_progress_bar, device =device)
             
@@ -270,8 +266,7 @@ if __name__ == "__main__":
     
     # Pretrain featuresd extractor (CNN)
     
-    cnn = Extractor('large', './ckpt/gd.pth')
-    ga = NSGA_II(CrossEntropy,population_size=100,dimension=parameters_size,numOfBits=50, crossPoint=20, encoding='real')
+    cnn = Extractor('large','./ckpt/CIFAR-10_GD_SGD.pth')
     
     # put an extracted features in batach form
     features , labels = cnn.extract_features(train_loader, device=device)
@@ -281,7 +276,8 @@ if __name__ == "__main__":
     
     
     print("Initializing poppulation")
-    ga.initPop(model=model,device=device, data=fitness_loader)
+
+    ga = NSGA_II(CrossEntropy,population_size=100,model=model,device=device, data=fitness_loader,numOfBits=50, encoding='real')
     print("Finish initializing population")
 
 

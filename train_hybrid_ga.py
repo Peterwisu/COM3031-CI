@@ -197,7 +197,8 @@ def test(ga, device, loss_criterion, testing_set, classes, cnn):
     test_loss, test_acc, test_cm_plot, test_roc_plot = eval_model(ga, device, loss_criterion, testing_set, classes,cnn)
 
     print("**Testing stage** LOSS : {} , Accuracy : {} ".format(test_loss, test_acc))
-
+    writer.add_scalar("Loss/Test",test_loss,1)
+    writer.add_scalar("Loss/ACC",test_acc,1)
     writer.add_figure("Plot/test_cm",test_cm_plot,1)
     writer.add_figure("Plot/test_roc", test_roc_plot,1)
 
@@ -206,7 +207,7 @@ def test(ga, device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_GA"
+    savename ="CIFAR-10_HYBRID_GA"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -223,7 +224,12 @@ if __name__ == "__main__":
     
 
     print("Loading dataset ....")
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
+    transform = transforms.Compose([
+                                    transforms.RandomHorizontalFlip(p=0.5),
+                                    transforms.RandomVerticalFlip(p=0.5),
+                                    transforms.RandomGrayscale(p=0.3),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
     
     # Prepare Dataset
     training_set = torchvision.datasets.CIFAR10(root='./../data', train=True, download=True, transform=transform)
@@ -262,16 +268,8 @@ if __name__ == "__main__":
   
     
     # Pretrain features extrator (CNN)
-    cnn = Extractor('large','./ckpt/gd.pth')
+    cnn = Extractor('large','./ckpt/CIFAR-10_GD_SGD.pth')
 
-    ga = GeneticAlgorithms(CrossEntropy,
-            population_size=10,
-            dimension=parameters_size,
-            numOfBits=50,
-            crossPoint=5,
-            lower_bound=-1,
-            upper_bound=1,
-            encoding='real')
     print("Initializing poppulation")
     
     features, labels = cnn.extract_features(train_loader,device=device)
@@ -282,7 +280,16 @@ if __name__ == "__main__":
     fitness_loader  = DataLoader(Fitness_Dataset(fitness_data), batch_size=40000,shuffle=False, num_workers=2, drop_last=False)
     
     
-    ga.initPop(model=model,device=device, data=fitness_loader)
+   
+    ga = GeneticAlgorithms(CrossEntropy,
+            population_size=100,
+            model=model,
+            device=device,
+            data=fitness_loader,
+            
+            lower_bound=-1,
+            upper_bound=1,
+            encoding='real')
     print("Finish initializing population")
 
     
