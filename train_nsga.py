@@ -61,7 +61,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         #     labels = labels.to(device)
 
         features , labels  = cnn.extract_features(data=progress_bar, device=device)
-        loss, reg,  acc = ga.search(features,labels)
+        acc, reg,  loss = ga.search(features,labels)
             
 
         running_loss +=loss
@@ -208,7 +208,7 @@ def objective(predicted, labels, loss_criterion):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_NSGA"
+    savename ="NSGA-II-REAL-CODING-Max-ACC-Min-REG"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -281,12 +281,13 @@ if __name__ == "__main__":
     print("Finish initializing population")
 
 
-    #print(np.array(pso.population).shape)
+    
     
 
     train(ga, device, CrossEntropy, train_loader, test_loader, nepochs, classes,cnn, savename) 
     all_fronts , first_front=  ga.get_pareto_front() 
     save_pareto_front(all_fronts, first_front, save_name="{}.csv".format(savename))
+    
   
 
     writer.close()

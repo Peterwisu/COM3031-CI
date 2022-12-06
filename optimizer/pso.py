@@ -21,13 +21,14 @@ TYPE = ['global','local','social','competitive']
 
 # softmax activation function
 softmax = torch.nn.Softmax(dim=1)
+
+"""
+************************
+Particle Swarm Optimizer
+************************
+"""
 class ParticleSwarm():
-
-    """
-
-    Constructor for Particles Swarm Class
-        
-    """
+    
     def __init__ (self, 
                   objective :object, 
                   population_size: int, 
@@ -115,8 +116,9 @@ class ParticleSwarm():
 
             particle[:] = list(map(operator.add, particle, particle.speed))
         
-        
-         
+        """
+        Update velocity of particle for social learning pso
+        """  
         def updateParticle_sl(self,particle,population,center,idx):
             
             r1 = random.uniform(0,1)
@@ -137,16 +139,16 @@ class ParticleSwarm():
         """
         Objective funtion (Loss function) 
         """ 
-        def objective_function(self, data, labels):
+        def objective_function(self, x, y):
             
             with torch.no_grad():
                 # set model to training stage 
                 
                 self.model.train()
-                pred = self.model(data).detach()
+                pred = self.model(x).detach()
                 #print(pred)
                 
-                loss = self.objective(softmax(pred),labels).item()
+                loss = self.objective(softmax(pred),y).item()
                 
                  # get probabilites of each label
                 proba = softmax(pred).cpu().detach().numpy()
@@ -160,7 +162,7 @@ class ParticleSwarm():
                 accuracy = 0
                 
                 # allocate label to cpu
-                gt_labels = labels.cpu().detach().numpy()
+                gt_labels = y.cpu().detach().numpy()
 
                 for p ,g in zip(pred_labels,gt_labels):
 
@@ -274,7 +276,7 @@ class ParticleSwarm():
     
     
     """ 
-    def optimize(self,iter_no,nepoch,data,gt):
+    def search(self,iter_no,nepoch,x,y):
         
         #inertia
         w = self.wmax - ((self.wmax-self.wmin) * iter_no/nepoch)
@@ -283,7 +285,7 @@ class ParticleSwarm():
             self.weight_assign(particle)
             
             # Calculate a fitness
-            particle.fitness.values, particle.acc = self.toolbox.evaluate(self, data, gt)
+            particle.fitness.values, particle.acc = self.toolbox.evaluate(self, x, y)
             
             if (not particle.best) or (particle.best.fitness < particle.fitness):
                 
@@ -302,7 +304,7 @@ class ParticleSwarm():
             self.population.sort(key=lambda x: x.fitness, reverse=True) 
             social_best = self.population[0]
             temp = [x.fitness for x in self.population]
-            #print(temp[0])
+            
             center = self.getcenter(self.population)
             for i in reversed(range(len(self.population)-1)):
                 
@@ -326,11 +328,6 @@ class ParticleSwarm():
                     self.toolbox.update(self,particle,neighbour,w)
         
         # Assing the decision varible of Global best to model 
-        
-        # checking best value
-        # print(social_best.fitness.values)
-        # print(self.best.fitness.values)
-
         if self.pso_type == "social":
             
             self.weight_assign(social_best)

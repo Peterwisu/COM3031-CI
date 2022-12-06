@@ -16,22 +16,24 @@ from tqdm import tqdm
 # softmax activation function
 softmax = torch.nn.Softmax(dim=1)
 
+# Encoding type
+ENCODING = ['binary','real']
+# Selection type
+SELECTION = ['steady','gen']
+
 """
 ****************************
 Lamarckian Memetic algorithm
 ****************************
-"""
-
+""" 
 class memeticAlgorithms():
-    
-    
-     
     def __init__ (self,
                   objective, 
                   population_size,
                   model,
                   data,
                   device,
+                  optimizer,
                   numOfBits = 10,
                   nElitists=1,
                   crossProb=0.6, 
@@ -40,62 +42,94 @@ class memeticAlgorithms():
                   lower_bound = -1,
                   upper_bound = 1,
                   encoding = "binary",
+                  selection = "steady",
                   ls_iter = 5,
                   ls_lr=0.001,
                   ):
 
+
+        if encoding not in ENCODING:
+            
+            raise ValueError("The type of encoding should be in this list {}".format(ENCODING))
+        if selection not in SELECTION:
+
+            raise ValueError("The type of  selection should be in this list {}".format(SELECTION))
         # neural network model
         self.model = model
         # device
-        self.device =device
-        
+        self.device =device      
         # size of pupulation  
         self.population_size = population_size 
         # dimension of decision variable
-        self.dimension = sum([params.numel() for params in self.model.parameters()])
-        
+        self.dimension = sum([params.numel() for params in self.model.parameters()]) 
         # Number of bits ( only required in binary or gray coding)
         self.numOfBits = numOfBits 
         # Number of Elistis 
-        self.nElistists = nElitists 
-        
+        self.nElistists = nElitists  
         # Cross over probabilties
-        self.crossProb = crossProb 
-        
-        # objective function
-        
+        self.crossProb = crossProb  
         # Bit flip probabilites 
         self.flipProb = flipProb/(self.dimension * numOfBits) 
         # Mutation probabilities
         self.mutateProb = mutateProb 
-        
-        
-        
-        
         # Max number
         self.maxnum = 2**self.numOfBits
         # Type of encoding
-        self.encoding = encoding
-        
+        self.encoding = encoding     
         # Objective functions 
         self.objective = objective
         # Lower bound
         self.lower_bound = lower_bound
         # Upper bound
         self.upper_bound =upper_bound
-        
+        #survivial selection type
+        self.selection = selection
         # local search iteration 
         self.ls_iter = ls_iter
         # local search learning rate
         self.ls_lr = ls_lr
         # local search optimizer
-        self.optimizer = optim.Rprop( self.model.parameters() , lr = self.ls_lr)
+        self.optimizer = optimizer( self.model.parameters() , lr = self.ls_lr)
+
+    
+
+        """
+        Function to create a real coded GA 
+        """
+        def uniform(low,up,size=None):
+            try:
+                return [random.uniform(a,b) for a,b in zip(low,up)]
+            except TypeError:
+                
+                return  [random.uniform(a,b) for a, b in zip([low] * size, [up] *size)]
         
+         
+        """
+        *******
+        fitness : Objective funtion or Loss funciton for calculating a fitness
+        *******
         
-        def objective_nn(data, labels):
+        ****** 
+        inputs : 
+        ******
+        
+            x : inputs features
+            
+            y : ground truth
+        
+        ******* 
+        outputs :
+        *******
+        
+            (loss,) : Tuple containing inverse fitness values(loss) of a model and null
+            
+            accuracy : accuracy of a model
+            
+        """
+        def fitness(x, y):
             self.model.train()
-            pred = self.model(data)
-            loss = self.objective(softmax(pred),labels).item()
+            pred = self.model(x)
+            loss = self.objective(softmax(pred),y).item()
             
             proba = softmax(pred).cpu().detach().numpy()
             
@@ -108,7 +142,7 @@ class memeticAlgorithms():
             correct = 0
             accuracy = 0
             
-            gt_labels = labels.cpu().detach().numpy()
+            gt_labels = y.cpu().detach().numpy()
             
             for p, g in zip(pred_labels, gt_labels):
                 
@@ -121,29 +155,69 @@ class memeticAlgorithms():
                 
             return (1/loss,) , accuracy        
 
+        
         """
         Deap Libraries section 
         """
-         # Deap Creator
+        
+        # Deap Creator
         self.creator = creator
+        # The optmization is set to maximization at the begining (1.0,) using deap libray
+        # since Roulette Wheel selection in deap doesnt not support minimization
+        # To solve this we maximizing the inverse values of the fitness to make it minimization
         self.creator.create("FitnessMin", base.Fitness, weights=(1.0,))
-        self.creator.create("Individual", list, fitness=creator.FitnessMin, acc=list)
+        if self.encoding == "binary":
+       
+            self.creator.create("Individual", list, fitness=creator.FitnessMin, acc=list)
+            
+        else: 
+            
+            self.creator.create("Individual",array.array, typecode='d', fitness=creator.FitnessMin)
+        
         
         # Deap Toolbox
         self.toolbox = base.Toolbox()
-        self.toolbox.register("attr_bool", random.randint, 0, 1)
-        self.toolbox.register("individual", tools.initRepeat, self.creator.Individual, self.toolbox.attr_bool, self.numOfBits*self.dimension)
-        self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
-        self.toolbox.register("mate", tools.cxTwoPoint)
-        self.toolbox.register("mutate",tools.mutFlipBit, indpb= self.flipProb)
+        if self.encoding == "binary":
+        # Binary encoding(GRAY)
+            self.toolbox.register("attr_bool", random.randint, 0, 1)
+            self.toolbox.register("individual", tools.initRepeat, self.creator.Individual, self.toolbox.attr_bool, self.numOfBits*self.dimension)
+            self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
+            self.toolbox.register("mate", tools.cxTwoPoint)
+            self.toolbox.register("mutate",tools.mutFlipBit, indpb= self.flipProb)
+            
+        else:
+        # Real Coded
+            self.toolbox.register("attr_float", uniform,self.lower_bound, self.upper_bound, self.dimension)
+            self.toolbox.register("individual", tools.initIterate, self.creator.Individual, self.toolbox.attr_float)
+            self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
+            self.toolbox.register("mate", tools.cxSimulatedBinaryBounded, low=self.lower_bound, up=self.upper_bound, eta=20.0)
+            self.toolbox.register("mutate",tools.mutPolynomialBounded, low=self.lower_bound, up=self.upper_bound, eta=20.0,  indpb= 1/self.dimension)
+            
+        
         self.toolbox.register("select",tools.selRoulette, fit_attr='fitness')
-        self.toolbox.register("evaluate_nn",objective_nn)
-        
-        
+        self.toolbox.register("evaluate_nn",fitness)
         
         # Create population
         self.population = self.toolbox.population(n=self.population_size)
         
+        """
+        *******
+        initPop : Initialize  a  population of genetic algorithms using for optimzing a weight for neural network and calculate its fitness values
+        *******
+        
+        ******
+        inputs :
+        ******
+        
+            data : Pytorch's dataloader containg dataset for evaluating fitness
+        
+        *******
+        outputs :
+        *******
+        
+            None
+            
+        """ 
         def initPop(data): 
             fitnesses = [] 
             accuracy  = []
@@ -152,7 +226,14 @@ class memeticAlgorithms():
             
             # iterate to each individual in a population
             for individual in tqdm(self.population):
-                weight = self.separatevariables(individual)
+
+                if self.encoding == "binary":
+                    weight = self.separatevariables(individual)
+
+                else:
+
+                    weight = individual
+
                 #  assign weight to a model 
                 self.weight_assign(weight)
                 # calculate a fitness  for individual
@@ -166,12 +247,14 @@ class memeticAlgorithms():
             for individual , fitness , acc in zip(self.population,fitnesses, accuracy):
                 individual.fitness.values = fitness
                 individual.acc = acc
+                
+        # Calculate fitness of all individual 
         initPop(data)
         
     """
-    **********
+    *****************
     spearatevariables :  Separate a chromosome of individuals and convert chromosome into real values
-    **********
+    *****************
     
     ****** 
     inputs :
@@ -204,7 +287,7 @@ class memeticAlgorithms():
             
     """
     **********
-    weight_assing :  Assgin a weight to neuralnetwork
+    weight_assign :  Assgin a weight to neuralnetwork
     **********
     
     ****** 
@@ -247,9 +330,9 @@ class memeticAlgorithms():
             params_count += layer.numel()
     
     """
-    *******************
-    weightsOutOfNetwork
-    *******************
+    **********
+    weightsOut : copy a weight out from a network
+    **********
     
     ****** 
     inputs
@@ -260,42 +343,46 @@ class memeticAlgorithms():
     ******* 
     returns
     *******
-
         weights : weight inside a network
     """
-    def weightsOutOfNetwork(self):
+    def weightsOut(self):
         weights = []
         #Collecting data from every layer and flattening it into one single array
-        for layer, param in self.model.state_dict().items():
+        # for layer, param in self.model.state_dict().items():
         
-            flattened = (param.flatten().detach().clone().cpu().numpy()).tolist()
-            weights += flattened
-        
+        #     flattened = (param.flatten().detach().clone().cpu().numpy()).tolist()
+        #     weights += flattened
+
+        for params in self.model.parameters():
+            weights+= (params.flatten().detach().clone().cpu().numpy()).tolist()
         return weights 
     
     """
     **********
-    rprop : 
+    local search : perform a local search 
     **********
     
     ****** 
     inputs :
     ******
     
+        x : Inputs features
+        
+        y : ground truth
+    
     *******
     outputs :
     *******
     """ 
-    def rprop(self,trainingSet, trainingResults):
+    def local_search(self,x, y):
         
     
-        for i in range(self.ls_iter):
+        for _ in range(self.ls_iter):
             self.optimizer.zero_grad()   # zero the gradient buffers
-            output = self.model(trainingSet)
-            loss = self.objective(softmax(output), trainingResults)
-            
-            loss.backward()
-            self.optimizer.step()    # Does the update
+            output = self.model(x)
+            loss = self.objective(softmax(output), y) 
+            loss.backward() # backprop
+            self.optimizer.step()  # Optimze
        
         
     """
@@ -376,7 +463,6 @@ class memeticAlgorithms():
     *******
     
         individual:  individual containing list of chromosome
-
     """ 
     def weights2chrom(self,weights): # Insert weights into a single chromosome
    
@@ -386,10 +472,15 @@ class memeticAlgorithms():
                 weight = self.upper_bound
             elif weight< self.lower_bound:
                 weight = self.lower_bound
-            chromosome = self.real2chrom(weight)
-            chromList = list(map(int, list(chromosome)))
-            for x in chromList:
-                individual.append(x)
+
+            if self.encoding == "binary":
+                chromosome = self.real2chrom(weight)
+                chromList = list(map(int, list(chromosome)))
+                for x in chromList:
+                    individual.append(x)
+            else:
+
+                individual.append(weight)
         
         return individual
     
@@ -397,39 +488,61 @@ class memeticAlgorithms():
     
     """
     **********
-    lamarckian : 
+    lamarckian :  Perform Lamarckian Learning
     **********
     
     ****** 
-    inputs :
+    inputs  
     ******
     
+        individual : Individual containig values of decision variable
+        
+        x : inputs features 
+        
+        y : ground truth
+     
     *******
-    outputs
+    outputs 
+    *******
+    
+        new_ind : Values of decision variable for new individual
+        
     """ 
-    def lamarckian(self,individual, images, labels):
-        # Inserting individual into network and calculating the loss
-        sorted_ind = self.separatevariables(individual)
-        self.weight_assign(sorted_ind)
-        self.rprop(images, labels)
+    def lamarckian(self,individual, x, y):
+        
+
+        if self.encoding == 'binary':
+            weight = self.separatevariables(individual)
+        else :
+            weight = individual
+
+        # assign the weight
+        self.weight_assign(weight)
+
+        # perform local search
+        self.local_search(x, y)
    
-        # Creating a new individual based on the weights received from the network
-        indi = self.weights2chrom(self.weightsOutOfNetwork())
-        return indi
+        # Get a weight after local search
+        new_weight = self.weightsOut()
+
+        # get a weight to a chromosome
+        new_ind = self.weights2chrom(new_weight)
+      
+        return new_ind
     
     
     """
     ******
-    search : perform a optimization 
+    search : perform a Memetic Algorithms optimization 
     ******
     
     ******
     inputs :
     ******
     
-        images : inputs images data
+        x : inputs images data
         
-        labels :  ground truth of a images
+        y :  ground truth of a images
     
     *******
     outputs : 
@@ -440,7 +553,7 @@ class memeticAlgorithms():
         best_acc :  accuracy of a best individual
     
     """
-    def search(self, images, labels):
+    def search(self, x, y):
         
         # select an offspring for reproduction 
         offspring = tools.selBest(self.population, self.nElistists) + self.toolbox.select(self.population, (self.population_size-self.nElistists))
@@ -482,7 +595,7 @@ class memeticAlgorithms():
         for child in offspring:
           # Remove offspring and replace them with a completely new one
           offspring.remove(child)
-          lamarck_ind = self.lamarckian(child, images, labels)
+          lamarck_ind = self.lamarckian(child, x, y)
           offspring.append(creator.Individual(lamarck_ind))
 
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
@@ -503,7 +616,7 @@ class memeticAlgorithms():
             
             self.weight_assign(weight)
             
-            fitness, acc= self.toolbox.evaluate_nn(images, labels)
+            fitness, acc= self.toolbox.evaluate_nn(x, y)
                 
             fitnesses.append(fitness)
             accuracy.append(acc)
@@ -515,13 +628,15 @@ class memeticAlgorithms():
             ind.acc =acc
         
         # Survival Selection
-        self.population[:] =  tools.selBest(self.population + offspring, self.population_size)#offspring
-
-
-
-
-
+        if self.selection == "steady":
+            
+            # Steady State
+            self.population[:] =  tools.selBest(self.population + offspring, self.population_size)#offspring
         
+        else :
+            # Generational
+            self.population[:] = offspring
+ 
         # select the best individual
         best_individual= tools.selBest(self.population,1)[0]
         best_acc = best_individual.acc

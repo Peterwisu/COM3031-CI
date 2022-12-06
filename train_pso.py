@@ -51,7 +51,7 @@ def train(pso, device, loss_criterion, training_set, validation_set,nepochs, cla
             images = images.to(device)
             labels = labels.to(device)
 
-            loss, acc = pso.optimize(global_epochs,nepochs,images,labels)
+            loss, acc = pso.search(global_epochs,nepochs,images,labels)
             running_acc +=acc
             running_loss +=loss
             iter_inbatch +=1
@@ -220,7 +220,7 @@ def objective(predicted, labels, loss_criterion):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_PSO_pure"
+    savename ="CIFAR-10_PSO"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))

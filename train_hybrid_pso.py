@@ -53,7 +53,7 @@ def train(pso, device, loss_criterion, training_set, validation_set,nepochs, cla
         
         features , labels = cnn.extract_features(data=progress_bar, device=device)
         
-        loss, acc = pso.optimize(global_epochs,nepochs,features,labels)
+        loss, acc = pso.search(global_epochs,nepochs,features,labels)
         running_acc +=acc
         running_loss +=loss
         iter_inbatch +=1
@@ -243,7 +243,7 @@ def test(pso , device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_HYBRID_PSO"
+    savename ="HYBRID_PSO_GLOBAL_100_SWARM"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -305,9 +305,11 @@ if __name__ == "__main__":
     parameters_size =sum(params.numel() for params in model.parameters() if params.requires_grad)
     print(type(CrossEntropy))
     print(type(model))
-    pso = ParticleSwarm(CrossEntropy, 200, model=model, device= device, pso_type='global', num_neighbours=20)
+    pso = ParticleSwarm(CrossEntropy, 100, model=model, device= device, pso_type='global')
     
+    print("Number of swarm")
     print(np.array(pso.population).shape)
+    print("Typeof PSO")
     print(pso.pso_type)
     
     # Pretrain features extrator (CNN)

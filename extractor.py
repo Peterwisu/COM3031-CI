@@ -14,7 +14,7 @@ from model.classifier import Classifier
 
 """
 
-Extractor : class for loading pretrain  features extractor model
+Extractor : class for loading pretrain features extractor model
 
 """
 class Extractor():

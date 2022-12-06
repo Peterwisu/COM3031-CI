@@ -207,7 +207,7 @@ def test(ga, device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_HYBRID_GA_binary_coding"
+    savename ="HYBRID_GA_real_coded_generational"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -289,7 +289,7 @@ if __name__ == "__main__":
             numOfBits=50, 
             lower_bound=-1,
             upper_bound=1,
-            encoding='binary')
+            encoding='real')
     print("Finish initializing population")
 
     

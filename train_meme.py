@@ -207,7 +207,7 @@ def test(ga, device, loss_criterion, testing_set, classes, cnn):
 if __name__ == "__main__":
     
 
-    savename ="CIFAR-10_meme_steady_state"
+    savename ="memetic-rprop-realcode_with_5_iteration_5_with50pop"
 
     #  Setup tensorboard
     writer = SummaryWriter("../CI_logs/{}".format(savename))
@@ -256,7 +256,6 @@ if __name__ == "__main__":
 
     
     # Classifier Models
-
     model = Classifier(size="fc").to(device)
 
     # Loss function Objective function 
@@ -281,22 +280,23 @@ if __name__ == "__main__":
     fitness_loader  = DataLoader(Fitness_Dataset(fitness_data), batch_size=40000,shuffle=False, num_workers=2, drop_last=False)
     
     
-    #ga.initPop(model=model,device=device, data=fitness_loader)
-    ga = memeticAlgorithms(CrossEntropy,
+
+    memetic = memeticAlgorithms(CrossEntropy,
             population_size=50,
             model=model,
             device=device,
             data=fitness_loader,
+            optimizer= torch.optim.Rprop,
             numOfBits=50,
-            ls_iter=3, 
+            ls_iter=50, 
             lower_bound=-1,
             upper_bound=1,
-            encoding='binary')
+            encoding='real')
     print("Finish initializing population")
 
     
-    train(ga, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename=savename) 
-    test(ga, device, CrossEntropy, test_loader, classes, cnn)
+    train(memetic, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename=savename) 
+    test(memetic, device, CrossEntropy, test_loader, classes, cnn)
 
     writer.close()
 

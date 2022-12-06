@@ -30,7 +30,7 @@ softmax = nn.Softmax(dim=1)
     Train Model
 
 """
-def train(model, pso, device, loss_criterion, training_set, validation_set,nepochs, classes, cnn , savename):
+def train(model, optimizer, device, loss_criterion, training_set, validation_set,nepochs, classes, cnn , savename):
     
     global global_epochs
 
@@ -56,7 +56,7 @@ def train(model, pso, device, loss_criterion, training_set, validation_set,nepoc
         features = features.reshape(features.size(0),-1)
         #print(features.shape)
         model.train()
-        pso.zero_grad()
+        optimizer.zero_grad()
         outputs= model(features)
         
        
@@ -65,7 +65,7 @@ def train(model, pso, device, loss_criterion, training_set, validation_set,nepoc
         
         loss , acc, _,_, _= objective(outputs, labels, CrossEntropy)
         loss.backward()
-        pso.step()
+        optimizer.step()
         
         
         running_acc +=acc
@@ -325,13 +325,13 @@ if __name__ == "__main__":
     parameters_size =sum(params.numel() for params in model.parameters() if params.requires_grad)
 
    
-    pso = optim.Adam(params= model.parameters(), lr=0.001)
+    optimizer = optim.Adam(params= model.parameters(), lr=0.001)
     
     # Pretrain features extrator (CNN)
     cnn = Extractor('large','./ckpt/CIFAR-10_GD_SGD.pth')
     
-    train(model, pso, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename) 
-    test(model,pso, device, CrossEntropy, test_loader, classes, cnn)
+    train(model, optimizer, device, CrossEntropy, train_loader, validation_loader, nepochs, classes, cnn, savename) 
+    test(model, optimizer, device, CrossEntropy, test_loader, classes, cnn)
 
     writer.close()
 
