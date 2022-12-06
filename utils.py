@@ -276,7 +276,7 @@ returns
     None 
 
 """
-def save_logs(train_loss,eval_loss,train_acc,eval_acc, save_name):
+def save_logs(train_loss,eval_loss,train_acc,eval_acc, save_name,train_reg,NSGA=False):
 
     # save path
     path = "./logs/"
@@ -294,6 +294,10 @@ def save_logs(train_loss,eval_loss,train_acc,eval_acc, save_name):
     df['eval_loss'] = eval_loss
     df['train_acc'] = train_acc
     df['eval_acc'] = eval_acc
+
+    if NSGA == True:
+
+        df['train_reg'] = train_reg
     
     #  assign file name to a path
     #savepath = os.path.join(path,'gd_logs.csv') 

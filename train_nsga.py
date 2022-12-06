@@ -43,6 +43,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
     loss_vali_logs  = np.array([])
     acc_train_logs = np.array([])
     acc_vali_logs = np.array([])
+    reg_train_logs = np.array([])
     print('Start training')
     while global_epochs < nepochs+1:
 
@@ -75,7 +76,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         # get loss in current iteration
         train_acc = running_acc/iter_inbatch
         train_loss = running_loss/iter_inbatch
-        train_reg = running_reg
+        train_reg = running_reg/iter_inbatch
         
         
         all_front , first_front = ga.get_pareto_front()
@@ -93,6 +94,8 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         
         acc_train_logs = np.append(acc_train_logs, train_acc)
         acc_vali_logs = np.append(acc_vali_logs, vali_acc)
+
+        reg_train_logs = np.append(reg_train_logs, train_reg)
         
         # Plot Figure
         loss_figure = plot_diff(loss_train_logs, loss_vali_logs," NSGA Loss")
@@ -112,7 +115,7 @@ def train(ga, device, loss_criterion, training_set, testing_set,nepochs, classes
         writer.add_figure("Plot/pareto_front", pareto_plot, global_epochs)   
         
         # save alls logs to csv files
-        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name='{}.csv'.format(savename))    
+        save_logs(loss_train_logs, loss_vali_logs, acc_train_logs, acc_vali_logs, save_name='{}.csv'.format(savename), train_reg=reg_train_logs, NSGA=True)    
         
         
         # increment epoch
@@ -177,7 +180,7 @@ def objective(predicted, labels, loss_criterion):
     
 
     # calcuate an objective loss 
-    loss = loss_criterion(softmax(predicted), labels)
+    loss = loss_criterion(predicted, labels)
     
     # get probabilites of each label
     proba = softmax(predicted).cpu().detach().numpy()

@@ -210,10 +210,10 @@ returns
 
 def objective(predicted, labels, loss_criterion):
     
+    # calcuate an objective loss 
+    loss = loss_criterion(predicted, labels)
     # get probabilites of each label
     proba = softmax(predicted)
-    # calcuate an objective loss 
-    loss = loss_criterion(proba, labels)
     
     # detach a tensor out from computaional graph and conver to numpy
     proba = proba.cpu().detach().numpy()

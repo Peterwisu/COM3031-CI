@@ -123,7 +123,7 @@ class GeneticAlgorithms():
                  
             self.model.train()
             pred = self.model(x)
-            loss = self.objective(softmax(pred),y).item()
+            loss = self.objective(pred,y).item()
             
             proba = softmax(pred).cpu().detach().numpy()
             

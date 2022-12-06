@@ -33,7 +33,7 @@ class NSGA_II():
                   device,
                   data,
                   numOfBits = 10,
-                  nElitists=1, 
+                
                   crossProb=0.6,
                   flipProb =1,
                   mutateProb=0.1,
@@ -55,8 +55,7 @@ class NSGA_II():
         self.dimension = sum(params.numel() for params in self.model.parameters())
         # Number of a bit represent values of decision variable
         self.numOfBits = numOfBits 
-        # Number of Elistism
-        self.nElistists = nElitists 
+        
         # Probabilites for CrossOver 
         self.crossProb = crossProb 
         # Probabilities of flipping a bit in mutation
@@ -115,7 +114,7 @@ class NSGA_II():
                  
             self.model.train()
             pred = self.model(x)
-            loss = self.objective(softmax(pred),y).item()
+            loss = self.objective(pred,y).item()
             
             reg = gaussian_regularizer(self.model, self.device).item()
             

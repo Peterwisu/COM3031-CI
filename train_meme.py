@@ -164,7 +164,7 @@ def objective(predicted, labels, loss_criterion):
     
 
     # calcuate an objective loss 
-    loss = loss_criterion(softmax(predicted), labels)
+    loss = loss_criterion(predicted, labels)
     
     # get probabilites of each label
     proba = softmax(predicted).cpu().detach().numpy()

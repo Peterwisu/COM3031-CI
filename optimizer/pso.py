@@ -148,7 +148,7 @@ class ParticleSwarm():
                 pred = self.model(x).detach()
                 #print(pred)
                 
-                loss = self.objective(softmax(pred),y).item()
+                loss = self.objective(pred,y).item()
                 
                  # get probabilites of each label
                 proba = softmax(pred).cpu().detach().numpy()
