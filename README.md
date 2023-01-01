@@ -1,5 +1,14 @@
 # COM 3031 Computational Intelligence Coursework 
 
+This repository contain the code implementation for COM 3031 Computational Intelligence assignment.
+Using Pytorch for implementation of a deep neural network for image classification task on CIFAR-10 dataset
+and compare a result of a model trained on different types of optimizers that are
+
+- Gradient based optimizaton (gradient descent)
+- Metaheuristic optimization (GA, PSO  and Memetic)
+
+Metaheuristic optimizer was implemented using Deap library.
+
 ## Memeber of a groups
 
 1. Wish Suharitdamrong
