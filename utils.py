@@ -276,7 +276,7 @@ returns
     None 
 
 """
-def save_logs(train_loss,eval_loss,train_acc,eval_acc, save_name,train_reg,NSGA=False):
+def save_logs(train_loss,eval_loss,train_acc,eval_acc, save_name,train_reg=None,NSGA=False):
 
     # save path
     path = "./logs/"

@@ -396,6 +396,7 @@ if __name__ == "__main__":
     
     print("Model Architecture")
     print(model)
+
     
     # Loss function Objective function 
     CrossEntropy = nn.CrossEntropyLoss()
