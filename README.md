@@ -9,6 +9,10 @@ and compare a result of a model trained on different types of optimizers that ar
 
 Metaheuristic optimizer was implemented using Deap library.
 
+Grade:  93/100.
+
+Report : [Link to report folder](https://github.com/peterwisu/metaheuristic_optimizer/tree/master/report)
+
 ## Memeber of a groups
 
 1. Wish Suharitdamrong
